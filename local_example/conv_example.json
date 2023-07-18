@@ -1,0 +1,5 @@
+{
+  "role": "user",
+  "content": "Write \"hello world\" in Ocaml."
+}
+{"role": "assistant", "content": "print_string \"hello world\";;"}

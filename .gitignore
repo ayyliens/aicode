@@ -1,0 +1,13 @@
+# Blacklist -> whitelist -> blacklist -> ... -> ...
+
+.DS_Store
+/*
+
+!/makefile
+!/readme.md
+!/go.sum
+!/go.mod
+!/*.go
+!/*.py
+!/go
+!/local_example
