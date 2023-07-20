@@ -19,7 +19,7 @@ type Watcher[A FsEventer] struct {
 	Path   string
 	Filter notify.Event  // Allowed event types, default all.
 	Delay  time.Duration // Time window for ignoring subsequent FS events.
-	IsDir  bool          // true = dir, false = file.
+	IsDir  bool          // `true` = dir, `false` = file.
 	Create bool          // Auto-create if missing.
 	Verb   bool          // Verbose logging.
 	Init   bool          // Run once before watching.

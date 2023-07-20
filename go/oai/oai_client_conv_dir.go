@@ -32,7 +32,7 @@ func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	defer gg.RecWith(u.LogErr)
 
 	dir := self.ConvDir()
-	defer gg.RecWith(dir.LogWriteErr)
+	defer gg.Finally(dir.LogWriteErr)
 
 	req := dir.ChatCompletionRequest()
 	if !req.IsValid() {

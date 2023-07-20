@@ -9,5 +9,6 @@
 !/go.mod
 !/*.go
 !/*.py
+!/*.example
 !/go
 !/local_example

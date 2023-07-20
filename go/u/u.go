@@ -16,6 +16,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/mitranim/gg"
 	"github.com/mitranim/jsonfmt"
+	mofo "golang.org/x/mod/modfile"
 	"gopkg.in/yaml.v3"
 )
 
@@ -87,21 +88,61 @@ func ReadFileOpt[A gg.Text](path string) A {
 	return gg.ReadFile[A](path)
 }
 
-// TODO move to `gg`.
-func WriteFile[A gg.Text](path string, src A) {
-	gg.MkdirAll(filepath.Dir(path))
-	gg.WriteFile(path, src)
+const (
+	FileWriteEmptyCreate = `create`
+	FileWriteEmptyDelete = `delete`
+	FileWriteEmptyTrunc  = `trunc`
+	FileWriteEmptySkip   = `skip`
+)
+
+/*
+TODO consider moving to `gg`.
+
+TODO similar abstraction for various "encode" and "decode" functions such as
+`JsonDecodeFileOpt` and `JsonEncodeFileOpt`.
+*/
+type FileWrite struct {
+	Path  string
+	Body  []byte
+	Mkdir bool
+	Empty string
 }
 
-// TODO move to `gg`. TODO better naming scheme.
+func (self FileWrite) Run() {
+	if self.Mkdir {
+		gg.MkdirAll(filepath.Dir(self.Path))
+	}
+
+	if gg.IsTextEmpty(self.Body) {
+		switch self.Empty {
+		case ``, FileWriteEmptyCreate:
+			break
+
+		case FileWriteEmptyDelete:
+			gg.Nop1(os.Remove(self.Path))
+
+		case FileWriteEmptyTrunc:
+			if !gg.FileExists(self.Path) {
+				return
+			}
+
+		case FileWriteEmptySkip:
+			return
+
+		default:
+			panic(gg.Errf(`unknown FileWrite.Empty: %q`, self.Empty))
+		}
+	}
+
+	gg.WriteFile(self.Path, self.Body)
+}
+
+func WriteFile[A gg.Text](path string, src A) {
+	FileWrite{Path: path, Body: gg.ToBytes(src)}.Run()
+}
+
 func WriteFileOpt[A gg.Text](path string, src A) {
-	if gg.IsNotZero(src) {
-		WriteFile(path, src)
-		return
-	}
-	if gg.FileExists(path) {
-		gg.WriteFile(path, ``)
-	}
+	FileWrite{Path: path, Body: gg.ToBytes(src), Empty: FileWriteEmptyTrunc}.Run()
 }
 
 func IsErrFileNotFound(err error) bool { return errors.Is(err, os.ErrNotExist) }
@@ -166,7 +207,7 @@ func JsonDecodeFile[A any](path string, tar *A) {
 
 func JsonDecodeFileOpt[A any](path string, tar *A) {
 	src := strings.TrimSpace(ReadFileOpt[string](path))
-	if len(src) > 0 {
+	if gg.IsNotZero(src) {
 		defer gg.Detailf(`unable to decode %q as JSON`, path)
 		gg.JsonDecode(src, tar)
 	}
@@ -187,12 +228,21 @@ func JsonEncodeFileOpt[A any](path string, src A) {
 	}
 }
 
+// Difference from `yaml.Marshal`: indent two spaces.
+func YamlEncode[Tar gg.Text, Src any](src Src) Tar {
+	var buf gg.Buf
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	gg.Try(enc.Encode(src))
+	return gg.ToText[Tar](buf)
+}
+
 func YamlDecode[Src gg.Text, Tar any](src Src, tar *Tar) {
 	gg.Try(yaml.Unmarshal(gg.ToBytes(src), tar))
 }
 
 func YamlDecodeOpt[Src gg.Text, Tar any](src Src, tar *Tar) {
-	if len(src) > 0 {
+	if gg.IsNotZero(src) {
 		YamlDecode(src, tar)
 	}
 }
@@ -204,7 +254,7 @@ func YamlDecodeFile[A any](path string, tar *A) {
 
 func YamlDecodeFileOpt[A any](path string, tar *A) {
 	src := strings.TrimSpace(ReadFileOpt[string](path))
-	if len(src) > 0 {
+	if gg.IsNotZero(src) {
 		defer gg.Detailf(`unable to decode %q as YAML`, path)
 		YamlDecode(src, tar)
 	}
@@ -212,7 +262,7 @@ func YamlDecodeFileOpt[A any](path string, tar *A) {
 
 func YamlEncodeFile[A any](path string, src A) {
 	defer gg.Detailf(`unable to encode %q as YAML`, path)
-	gg.WriteFile(path, gg.Try1(yaml.Marshal(src)))
+	gg.WriteFile(path, YamlEncode[string](src))
 }
 
 func YamlEncodeFileOpt[A any](path string, src A) {
@@ -230,7 +280,7 @@ func TomlDecode[Src gg.Text, Tar any](src Src, tar *Tar) {
 }
 
 func TomlDecodeOpt[Src gg.Text, Tar any](src Src, tar *Tar) {
-	if len(src) > 0 {
+	if gg.IsNotZero(src) {
 		TomlDecode(src, tar)
 	}
 }
@@ -242,7 +292,7 @@ func TomlDecodeFile[A any](path string, tar *A) {
 
 func TomlDecodeFileOpt[A any](path string, tar *A) {
 	src := strings.TrimSpace(ReadFileOpt[string](path))
-	if len(src) > 0 {
+	if gg.IsNotZero(src) {
 		defer gg.Detailf(`unable to decode %q as TOML`, path)
 		TomlDecode(src, tar)
 	}
@@ -271,8 +321,14 @@ func TomlEncodeFileOpt[A any](path string, src A) {
 }
 
 // TODO move to `gg`.
+func ReadDirOpt(path string) []fs.DirEntry {
+	defer gg.SkipOnly(IsErrFileNotFound)
+	return gg.ReadDir(path)
+}
+
+// TODO move to `gg`.
 func ReadDirFileNames(path string) []string {
-	return gg.MapCompact(gg.ReadDir(path), dirEntryToFileName)
+	return gg.MapCompact(ReadDirOpt(path), dirEntryToFileName)
 }
 
 func dirEntryToFileName(src fs.DirEntry) (_ string) {
@@ -304,3 +360,76 @@ func FormatVerbose(src any) string {
 	}
 	return strings.TrimSpace(fmt.Sprintf(`%+v`, src))
 }
+
+/*
+Difference from `filepath.Dir`: returns zero value when directory has no
+parent.
+*/
+func FilepathDir(src string) (_ string) {
+	src = filepath.Clean(src)
+	out := filepath.Dir(src)
+	if out == src {
+		return
+	}
+	return out
+}
+
+func DirProcureAnc[A any](dir string, fun func(string) A) (_ string, _ A) {
+	if fun == nil {
+		return
+	}
+
+	dir = filepath.Clean(dir)
+
+	for gg.IsNotZero(dir) {
+		val := fun(dir)
+		if gg.IsNotZero(val) {
+			return dir, val
+		}
+		dir = FilepathDir(dir)
+	}
+
+	return
+}
+
+func DirFindAnc[A any](dir string, fun func(string) A) string {
+	dir, _ = DirProcureAnc(dir, fun)
+	return dir
+}
+
+func PkgRoot() string {
+	out := DirFindAnc(gg.Cwd(), IsPkgRoot)
+	if gg.IsZero(out) {
+		panic(gg.Errv(`unable to find path of root package`))
+	}
+	return out
+}
+
+func IsPkgRoot(dir string) bool {
+	file := ReadGomodOpt(filepath.Join(dir, `go.mod`))
+	return file != nil && file.Module != nil && file.Module.Mod.Path == `_`
+}
+
+func ReadGomodOpt(path string) *mofo.File {
+	return ParseGomodOpt(path, ReadFileOpt[[]byte](path))
+}
+
+func ParseGomodOpt(path string, body []byte) *mofo.File {
+	if gg.IsTextEmpty(body) {
+		return nil
+	}
+	return gg.Try1(mofo.Parse(path, body, nil))
+}
+
+var PkgRootOnce = gg.NewLazy(PkgRoot)
+
+/*
+Joins given path with repo root path. Useful for tests because `go test` changes
+the current working directory when running tests in sub-folders.
+*/
+func PkgRelPath(path string) string {
+	return filepath.Join(PkgRootOnce.Get(), path)
+}
+
+// TODO better name.
+func JoinLines2Opt(src ...string) string { return gg.JoinOpt(src, "\n\n") }

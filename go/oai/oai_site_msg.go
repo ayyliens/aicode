@@ -2,6 +2,7 @@ package oai
 
 import "github.com/mitranim/gg"
 
+// Represents the format used internally by the chat UI on the OpenAI website.
 type OaiSiteMsg struct {
 	Author  OaiSiteMsgAuthor  `json:"author" db:"author"`
 	Content OaiSiteMsgContent `json:"content" db:"content"`

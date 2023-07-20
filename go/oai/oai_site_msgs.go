@@ -7,6 +7,7 @@ import (
 	"github.com/mitranim/gg"
 )
 
+// Represents the format used internally by the chat UI on the OpenAI website.
 type OaiSiteMsgs []OaiSiteMsg
 
 func (self *OaiSiteMsgs) FromFile(file *os.File) {
@@ -18,5 +19,5 @@ func (self OaiSiteMsgs) ChatCompletionMessages() []ChatCompletionMessage {
 }
 
 func (self OaiSiteMsgs) ConcatText() string {
-	return gg.Plus(gg.Map(self, OaiSiteMsg.GetText)...)
+	return u.JoinLines2Opt(gg.Map(self, OaiSiteMsg.GetText)...)
 }

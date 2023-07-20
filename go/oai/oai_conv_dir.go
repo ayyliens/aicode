@@ -126,7 +126,11 @@ func (self *ConvDir) WriteNextMsg(msg ChatCompletionMessage) {
 	tar.Role = msg.Role
 	tar.Ext = msg.Ext()
 
-	u.WriteFile(self.PathJoin(tar.String()), msg.Content)
+	u.FileWrite{
+		Path:  self.PathJoin(tar.String()),
+		Body:  gg.ToBytes(msg.Content),
+		Mkdir: true,
+	}.Run()
 	gg.Append(&self.Msgs, msg)
 }
 
@@ -152,5 +156,9 @@ func (self ConvDir) LogWriteErr(err error) {
 }
 
 func (self ConvDir) WriteErr(err error) {
-	u.WriteFileOpt(self.PathJoin(`response_error.txt`), u.FormatVerbose(err))
+	u.FileWrite{
+		Path:  self.PathJoin(`response_error.txt`),
+		Body:  gg.ToBytes(u.FormatVerbose(err)),
+		Empty: u.FileWriteEmptyTrunc,
+	}.Run()
 }

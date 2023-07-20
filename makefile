@@ -16,7 +16,7 @@ GO_TEST_FLAGS := -count=1 $(GO_FLAGS) $(VERB) $(FAIL) $(SHORT)
 GO_TEST_PATTERNS := -run="$(run)"
 
 default:
-	$(MAKE) go.run.w run=oai_watch_dir
+	$(MAKE) go.run.w run='oai_watch_dir -p local/conv'
 
 go.test.w:
 	$(GOW) test $(GO_PKG) $(GO_TEST_FLAGS) $(GO_TEST_PATTERNS)

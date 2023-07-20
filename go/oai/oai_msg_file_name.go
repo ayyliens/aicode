@@ -14,11 +14,19 @@ func IsMsgFileNameLax(val string) bool {
 }
 
 var ReMsgFileNameLax = gg.NewLazy(func() *regexp.Regexp {
-	return regexp.MustCompile(`^msg_\d+_`)
+	return regexp.MustCompile(`^msg_`)
 })
 
+/*
+Note: the amount of digits that denote the index should be fixed, to ensure that
+ordering file names by the common string-sorting algorithm is identical to
+ordering file names by the indexes as integers (assuming no duplicate indexes).
+We COULD internally order by parsed indexes, but we also want to ensure that
+files are ordered the same way in all FS browsers, including the OS built-ins
+and file lists in code editors, which requires a fixed digit count.
+*/
 var ReMsgFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
-	return regexp.MustCompile(`^msg_(\d+)_([a-z][a-z\d]*)([.][a-z]+)?$`)
+	return regexp.MustCompile(`^msg_(\d{4})_([a-z][a-z\d]*)([.][a-z]+)?$`)
 })
 
 type MsgFileName struct {

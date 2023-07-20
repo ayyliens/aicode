@@ -4,6 +4,7 @@ import (
 	"_/go/oai"
 	"_/go/u"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/mitranim/gg"
@@ -16,9 +17,6 @@ func Test_chat_completion(t *testing.T) {
 	t.Fail()
 	defer gtest.Catch(t)
 
-	var cli oai.OaiClient
-	cli.Init()
-
 	var req oai.ChatCompletionRequest
 	req.Default()
 	req.Messages = u.ParseJsonLines[oai.ChatCompletionMessage](gg.ReadFile[string](`testdata/conv_1_to_api_compatible.json`))
@@ -30,6 +28,7 @@ func Test_chat_completion(t *testing.T) {
 		Content: `Summarize the conversation so far.`,
 	})
 
+	var cli oai.OaiClient
 	ctx := context.Background()
 	res := cli.ChatCompletion(ctx, req)
 	grepr.Prn(`res:`, res)
@@ -46,22 +45,39 @@ func Test_conv_conversion(t *testing.T) {
 	u.WriteJsonLines(`testdata/conv_1_to_api_compatible.json`, tar)
 }
 
-func Test_parsing_conv_json(t *testing.T) {
-	// t.Fail()
+func Test_OaiSiteMsgs_ChatCompletionMessages(t *testing.T) {
 	defer gtest.Catch(t)
 
-	src := gg.ReadFile[string](`testdata/conv_0.json`)
-	tar := u.ParseJsonLines[oai.ChatCompletionMessage](src)
-
-	grepr.Prn(`tar:`, tar)
+	gtest.Equal(
+		testOaiSiteMsgJsonLines().ChatCompletionMessages(),
+		[]oai.ChatCompletionMessage{
+			{Role: `user`, Content: `provide response 0`},
+			{Role: `assistant`, Content: `response 0 provided`},
+			{Role: `user`, Content: `provide response 1`},
+			{Role: `assistant`, Content: `response 1 provided`},
+		},
+	)
 }
 
-func Test_conv_combine(t *testing.T) {
-	t.Skip()
+func testOaiSiteMsgJsonLines() oai.OaiSiteMsgs {
+	return u.ParseJsonLines[oai.OaiSiteMsg](
+		gg.ReadFile[string](`testdata/site_msgs_0.json`),
+	)
+}
+
+func Test_OaiSiteMsgs_ConcatText(t *testing.T) {
 	defer gtest.Catch(t)
 
-	src := gg.ReadFile[string](`testdata/conv_1.json`)
-	tar := oai.OaiSiteMsgs(u.ParseJsonLines[oai.OaiSiteMsg](src))
+	gtest.Eq(
+		testOaiSiteMsgJsonLines().ConcatText(),
+		strings.TrimSpace(`
+provide response 0
 
-	gg.WriteFile(`testdata/conv_1_combined.txt`, tar.ConcatText())
+response 0 provided
+
+provide response 1
+
+response 1 provided
+`),
+	)
 }
