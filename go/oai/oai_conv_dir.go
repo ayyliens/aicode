@@ -8,25 +8,34 @@ import (
 
 type ConvDir struct {
 	u.Pathed
-	Msgs []ChatCompletionMessage
-	Req  gg.Zop[ChatCompletionRequest]
-	Res  gg.Zop[ChatCompletionResponse]
+	Msgs        []ChatCompletionMessage
+	ReqTemplate gg.Zop[ChatCompletionRequest]
+	ReqLatest   gg.Zop[ChatCompletionRequest]
+	ResLatest   gg.Zop[ChatCompletionResponse]
 }
 
 func (self *ConvDir) Init() { self.Read() }
 
 func (self *ConvDir) Read() {
-	self.ReadRequest()
-	self.ReadResponse()
+	self.ReadRequestTemplate()
+	self.ReadRequestLatest()
+	self.ReadResponseLatest()
 	self.ReadMsgs()
 }
 
-func (self *ConvDir) ReadRequest() {
-	u.PolyDecodeFileOpt(self.RequestPath(), &self.Req.Val)
+func (self *ConvDir) ReadRequestTemplate() {
+	tar := &self.ReqTemplate.Val
+	u.JsonDecodeFileOpt(self.RequestTemplatePath(`.json`), tar)
+	u.YamlDecodeFileOpt(self.RequestTemplatePath(`.yaml`), tar)
+	u.TomlDecodeFileOpt(self.RequestTemplatePath(`.toml`), tar)
 }
 
-func (self *ConvDir) ReadResponse() {
-	u.PolyDecodeFileOpt(self.ResponsePath(), &self.Res.Val)
+func (self *ConvDir) ReadRequestLatest() {
+	u.PolyDecodeFileOpt(self.RequestLatestPathJson(), &self.ReqLatest.Val)
+}
+
+func (self *ConvDir) ReadResponseLatest() {
+	u.PolyDecodeFileOpt(self.ResponseLatestPath(), &self.ResLatest.Val)
 }
 
 func (self *ConvDir) ReadMsgs() {
@@ -56,17 +65,26 @@ func (self ConvDir) ValidateMsgs() {
 	}
 }
 
-// Can use any extension supported by `u.PolyDecodeFileOpt`.
-func (self ConvDir) RequestName() string     { return `request.json` }
-func (self ConvDir) RequestNameJson() string { return `request.json` }
-func (self ConvDir) RequestPath() string     { return self.PathJoin(self.RequestName()) }
-func (self ConvDir) RequestPathJson() string { return self.PathJoin(self.RequestNameJson()) }
+func (self ConvDir) RequestTemplatePath(ext string) string {
+	return self.PathJoin(`request_template` + ext)
+}
 
-// Can use any extension supported by `u.PolyEncodeFileOpt`.
-func (self ConvDir) ResponseName() string     { return `response.json` }
-func (self ConvDir) ResponseNameJson() string { return `response.json` }
-func (self ConvDir) ResponsePath() string     { return self.PathJoin(self.ResponseName()) }
-func (self ConvDir) ResponsePathJson() string { return self.PathJoin(self.ResponseNameJson()) }
+func (self ConvDir) RequestLatestPathJson() string {
+	return self.PathJoin(`request_latest.json`)
+}
+
+// Can change to any extension supported by `u.PolyEncodeFileOpt`.
+func (self ConvDir) ResponseLatestPath() string {
+	return self.PathJoin(`response_latest.json`)
+}
+
+func (self ConvDir) ResponseLatestPathJson() string {
+	return self.PathJoin(`response_latest.json`)
+}
+
+func (self ConvDir) ResponseLatestErrorPathJson() string {
+	return self.PathJoin(`response_latest_error.json`)
+}
 
 func (self *ConvDir) InitMsg() {
 	if gg.IsEmpty(self.Msgs) {
@@ -79,24 +97,28 @@ func (self ConvDir) ValidMsgs() []ChatCompletionMessage {
 }
 
 func (self ConvDir) ChatCompletionRequest() ChatCompletionRequest {
-	tar := self.Req.Val
+	tar := self.ReqTemplate.Val
 	tar.Default()
 	tar.Messages = self.ValidMsgs()
 	return tar
 }
 
-func (self *ConvDir) WriteResponse(src []byte) {
+func (self ConvDir) WriteRequestLatest(src ChatCompletionRequest) {
+	u.JsonEncodeFile(self.RequestLatestPathJson(), src)
+}
+
+func (self *ConvDir) WriteResponseLatest(src []byte) {
 	res := gg.JsonDecodeTo[ChatCompletionResponse](src)
-	self.Res.Set(res)
+	self.ResLatest.Set(res)
 	self.WriteResponseFiles(src, res)
 	self.WriteResponseMsgs(res)
 }
 
 func (self *ConvDir) WriteResponseFiles(src []byte, res ChatCompletionResponse) {
-	outJson := self.ResponsePathJson()
+	outJson := self.ResponseLatestPathJson()
 	u.WriteFile(outJson, src)
 
-	outPoly := self.ResponsePath()
+	outPoly := self.ResponseLatestPath()
 	if outPoly != outJson {
 		u.PolyEncodeFileOpt(outPoly, res)
 	}
@@ -104,47 +126,54 @@ func (self *ConvDir) WriteResponseFiles(src []byte, res ChatCompletionResponse) 
 
 func (self *ConvDir) WriteResponseMsgs(res ChatCompletionResponse) {
 	choice := res.ChatCompletionChoice()
+	choice.FinishReason.Validate()
+
 	msg := choice.ChatCompletionMessage()
 	msg.Validate()
 	self.WriteNextMsg(msg)
-
-	switch choice.FinishReason {
-	case FinishReasonNone, FinishReasonStop:
-		self.WriteNextMsgPlaceholderText()
-
-	case FinishReasonFunctionCall:
-		self.WriteNextMsgPlaceholderFunctionCall()
-
-	default:
-		panic(gg.Errf(`unrecognized/unsupported finish reason %q`, choice.FinishReason))
-	}
 }
 
 func (self *ConvDir) WriteNextMsg(msg ChatCompletionMessage) {
-	var tar MsgFileName
-	tar.Index = self.NextIndex()
-	tar.Role = msg.Role
-	tar.Ext = msg.Ext()
+	self.WriteMsg(msg)
+	self.WriteNextMsgPlaceholder(msg)
+}
 
-	u.FileWrite{
-		Path:  self.PathJoin(tar.String()),
-		Body:  gg.ToBytes(msg.Content),
-		Mkdir: true,
-	}.Run()
-	gg.Append(&self.Msgs, msg)
+func (self *ConvDir) WriteNextMsgPlaceholder(src ChatCompletionMessage) {
+	call := src.GetFunctionCall()
+	if gg.IsZero(call) {
+		self.WriteNextMsgPlaceholderText()
+	} else {
+		self.WriteNextMsgPlaceholderFunctionCall(call)
+	}
 }
 
 func (self *ConvDir) WriteNextMsgPlaceholderText() {
-	var msg ChatCompletionMessage
-	msg.Role = ChatMessageRoleUser
-	self.WriteNextMsg(msg)
+	var tar ChatCompletionMessage
+	tar.Role = ChatMessageRoleUser
+	self.WriteMsg(tar)
 }
 
-func (self *ConvDir) WriteNextMsgPlaceholderFunctionCall() {
-	var msg ChatCompletionMessage
-	msg.Role = ChatMessageRoleUser
-	msg.FunctionCall = new(FunctionCall)
-	self.WriteNextMsg(msg)
+func (self *ConvDir) WriteNextMsgPlaceholderFunctionCall(src FunctionCall) {
+	var tar ChatCompletionMessage
+	tar.Role = ChatMessageRoleFunction
+	tar.Name = src.Name
+	self.WriteMsg(tar)
+}
+
+func (self *ConvDir) WriteMsg(src ChatCompletionMessage) {
+	ext, body := src.ExtBody()
+
+	var tar MsgFileName
+	tar.Index = self.NextIndex()
+	tar.Role = src.Role
+	tar.Ext = ext
+
+	u.FileWrite{
+		Path:  self.PathJoin(tar.String()),
+		Body:  body,
+		Mkdir: true,
+	}.Run()
+	gg.Append(&self.Msgs, src)
 }
 
 func (self ConvDir) NextIndex() int { return len(self.Msgs) }
@@ -157,7 +186,7 @@ func (self ConvDir) LogWriteErr(err error) {
 
 func (self ConvDir) WriteErr(err error) {
 	u.FileWrite{
-		Path:  self.PathJoin(`response_error.txt`),
+		Path:  self.ResponseLatestErrorPathJson(),
 		Body:  gg.ToBytes(u.FormatVerbose(err)),
 		Empty: u.FileWriteEmptyTrunc,
 	}.Run()

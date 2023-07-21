@@ -1,0 +1,3 @@
+function_call:
+  arguments: '{"location": "Boston, MA"}'
+  name: get_current_weather

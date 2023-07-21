@@ -1,6 +1,10 @@
 package oai
 
-import "github.com/mitranim/gg"
+import (
+	"_/go/u"
+
+	"github.com/mitranim/gg"
+)
 
 type ChatCompletionRequest struct {
 	Model            string                  `json:"model,omitempty"             yaml:"model,omitempty"             toml:"model,omitempty"`
@@ -26,4 +30,30 @@ func (self *ChatCompletionRequest) Default() {
 func (self *ChatCompletionRequest) IsValid() bool {
 	msg := gg.Last(self.Messages)
 	return msg.Role == ChatMessageRoleUser && msg.IsValid()
+}
+
+/*
+Known issue: this is unable to detect if a placeholder file for a function call
+response is still a placeholder, or has been filled-in by the user.
+*/
+func (self *ChatCompletionRequest) SkipReason() (_ string) {
+	if gg.IsEmpty(self.Messages) {
+		return `no messages found`
+	}
+
+	msg := gg.Last(self.Messages)
+
+	if gg.IsZero(msg.Role) {
+		return `last message: missing role`
+	}
+
+	if msg.Role == ChatMessageRoleAssistant {
+		return `last message is already from assistant`
+	}
+
+	if u.IsTextBlank(msg.Content) {
+		return `last message: empty content`
+	}
+
+	return
 }

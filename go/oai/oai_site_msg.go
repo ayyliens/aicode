@@ -26,7 +26,7 @@ type OaiSiteMsgAuthor struct {
 }
 
 type OaiSiteMsgContent struct {
-	ContentType string   `json:"contentType" db:"content_type"`
+	ContentType string   `json:"content_type" db:"content_type"`
 	Parts       []string `json:"parts" db:"parts"`
 }
 

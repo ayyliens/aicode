@@ -14,7 +14,7 @@ func IsMsgFileNameLax(val string) bool {
 }
 
 var ReMsgFileNameLax = gg.NewLazy(func() *regexp.Regexp {
-	return regexp.MustCompile(`^msg_`)
+	return regexp.MustCompile(`^\d`)
 })
 
 /*
@@ -26,7 +26,7 @@ files are ordered the same way in all FS browsers, including the OS built-ins
 and file lists in code editors, which requires a fixed digit count.
 */
 var ReMsgFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
-	return regexp.MustCompile(`^msg_(\d{4})_([a-z][a-z\d]*)([.][a-z]+)?$`)
+	return regexp.MustCompile(`^(\d{4})_msg_([a-z][a-z\d]*)([.][a-z]+)?$`)
 })
 
 type MsgFileName struct {
@@ -41,7 +41,7 @@ func (self MsgFileName) String() (_ string) {
 	if !self.IsValid() {
 		return
 	}
-	return `msg_` + self.IndexString() + `_` + string(self.Role) + self.Ext
+	return self.IndexString() + `_msg_` + string(self.Role) + self.Ext
 }
 
 func (self MsgFileName) IndexString() (_ string) {

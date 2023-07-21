@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/joho/godotenv"
 	"github.com/mitranim/gg"
 	"github.com/mitranim/jsonfmt"
 	mofo "golang.org/x/mod/modfile"
@@ -346,6 +347,8 @@ func (self Pathed) PathJoin(path string) string {
 
 type Verbose struct{ Verb bool }
 
+type Inited struct{ Init bool }
+
 // TODO: anything built in?
 func StringPadPrefix(src string, char rune, count int) string {
 	var buf gg.Buf
@@ -433,3 +436,14 @@ func PkgRelPath(path string) string {
 
 // TODO better name.
 func JoinLines2Opt(src ...string) string { return gg.JoinOpt(src, "\n\n") }
+
+func LoadEnvFiles() {
+	for _, base := range gg.Reversed(strings.Split(os.Getenv(`CONF`), `,`)) {
+		gg.Try(godotenv.Load(filepath.Join(base, `.env.properties`)))
+	}
+}
+
+// TODO move to `gg`.
+func IsTextBlank[A gg.Text](src A) bool {
+	return gg.IsTextEmpty(strings.TrimSpace(gg.ToString(src)))
+}

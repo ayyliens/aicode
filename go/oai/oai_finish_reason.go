@@ -1,5 +1,7 @@
 package oai
 
+import "github.com/mitranim/gg"
+
 type FinishReason string
 
 const (
@@ -10,3 +12,11 @@ const (
 	FinishReasonContentFilter FinishReason = `content_filter`
 	FinishReasonNull          FinishReason = `null`
 )
+
+func (self FinishReason) Validate() {
+	switch self {
+	case FinishReasonNone, FinishReasonStop, FinishReasonFunctionCall:
+	default:
+		panic(gg.Errf(`unrecognized/unsupported finish reason %q`, self))
+	}
+}

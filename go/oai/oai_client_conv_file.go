@@ -13,6 +13,7 @@ type OaiClientConvFile struct {
 	OaiClient
 	u.Pathed
 	u.Verbose
+	u.Inited
 }
 
 func (self OaiClientConvFile) Watch(ctx u.Ctx) {
@@ -21,12 +22,16 @@ func (self OaiClientConvFile) Watch(ctx u.Ctx) {
 		Path:   self.Path,
 		Verb:   self.Verb,
 		Create: true,
+		Init:   self.Init,
 	}.Run(ctx)
 }
 
 func (self OaiClientConvFile) OnFsEvent(ctx u.Ctx, _ notify.EventInfo) {
 	defer gg.RecWith(u.LogErr)
+	self.Run(ctx)
+}
 
+func (self OaiClientConvFile) Run(ctx u.Ctx) {
 	src := strings.TrimSpace(gg.ReadFile[string](self.Path))
 
 	var req ChatCompletionRequest

@@ -12,6 +12,7 @@ type OaiClientConvDir struct {
 	OaiClient
 	u.Pathed
 	u.Verbose
+	u.Inited
 }
 
 func (self OaiClientConvDir) Watch(ctx u.Ctx) {
@@ -23,27 +24,35 @@ func (self OaiClientConvDir) Watch(ctx u.Ctx) {
 		Verb:   self.Verb,
 		IsDir:  true,
 		Create: true,
+		Init:   self.Init,
 	}.Run(ctx)
 }
 
 func (self OaiClientConvDir) InitMsg() { gg.Ptr(self.ConvDir()).InitMsg() }
 
-func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
+func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, _ notify.EventInfo) {
+	defer gg.RecWith(u.LogErr)
+	self.Run(ctx)
+}
+
+func (self OaiClientConvDir) Run(ctx u.Ctx) {
 	defer gg.RecWith(u.LogErr)
 
 	dir := self.ConvDir()
 	defer gg.Finally(dir.LogWriteErr)
 
 	req := dir.ChatCompletionRequest()
-	if !req.IsValid() {
+	skip := req.SkipReason()
+	if gg.IsNotZero(skip) {
 		if self.Verb {
-			log.Println(`skipping chat completion request`)
+			log.Println(`skipping chat completion request:`, skip)
 		}
 		return
 	}
 
+	dir.WriteRequestLatest(req)
 	res := self.VerbChatCompletionBody(ctx, req)
-	dir.WriteResponse(u.JsonPretty(res))
+	dir.WriteResponseLatest(u.JsonPretty(res))
 }
 
 func (self OaiClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest) []byte {
