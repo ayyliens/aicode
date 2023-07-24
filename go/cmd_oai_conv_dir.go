@@ -14,6 +14,8 @@ Examples:
 	make go.run run='cmd_conv_dir --path=local/conv'
 	make go.run.w run='cmd_conv_dir --path=local/conv --watch --init'
 	make go.run.w run='cmd_conv_dir --path=local/conv --out-path=local/conv/files --watch --funcs'
+
+Be cautious: files in target directory may be overwritten with no recovery.
 */
 type CmdOaiConvDir struct {
 	CmdOaiCommon
@@ -40,10 +42,12 @@ func (self CmdOaiConvDir) Run() {
 	cli.Path = self.Path
 	cli.Verb = true
 
-	if self.Funcs && gg.IsNotZero(self.OutPath) {
-		cli.Functions.Add(`write_files`, &FunctionWriteFiles{
-			Path: self.OutPath,
-		})
+	if self.Funcs {
+		cli.Functions.Add(`get_current_weather`, &FunctionGetCurrentWeather{})
+
+		if gg.IsNotZero(self.OutPath) {
+			cli.Functions.Add(`write_files`, &FunctionWriteFiles{Path: self.OutPath})
+		}
 	}
 
 	if self.Watch {

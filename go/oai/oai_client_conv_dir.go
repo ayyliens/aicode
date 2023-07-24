@@ -116,10 +116,17 @@ func (self OaiClientConvDir) RunFunction(dir OaiConvDir, call FunctionCall) {
 		call.Name,
 		self.FunctionResponse(self.Functions.Get(call.Name), call.Name, call.Arguments),
 	)
+
+	if self.Verb {
+		log.Printf(`wrote pending function response; when running in watch mode, review and re-save the file to trigger the next request`)
+	}
 }
 
 func (self OaiClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName, arg string) (_ string) {
 	if fun == nil {
+		if self.Verb {
+			log.Printf(`found no registered function %q, returning empty function response`, name)
+		}
 		return
 	}
 
