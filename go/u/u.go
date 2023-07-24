@@ -89,63 +89,6 @@ func ReadFileOpt[A gg.Text](path string) A {
 	return gg.ReadFile[A](path)
 }
 
-const (
-	FileWriteEmptyCreate = `create`
-	FileWriteEmptyDelete = `delete`
-	FileWriteEmptyTrunc  = `trunc`
-	FileWriteEmptySkip   = `skip`
-)
-
-/*
-TODO consider moving to `gg`.
-
-TODO similar abstraction for various "encode" and "decode" functions such as
-`JsonDecodeFileOpt` and `JsonEncodeFileOpt`.
-*/
-type FileWrite struct {
-	Path  string
-	Body  []byte
-	Mkdir bool
-	Empty string
-}
-
-func (self FileWrite) Run() {
-	if self.Mkdir {
-		gg.MkdirAll(filepath.Dir(self.Path))
-	}
-
-	if gg.IsTextEmpty(self.Body) {
-		switch self.Empty {
-		case ``, FileWriteEmptyCreate:
-			break
-
-		case FileWriteEmptyDelete:
-			gg.Nop1(os.Remove(self.Path))
-
-		case FileWriteEmptyTrunc:
-			if !gg.FileExists(self.Path) {
-				return
-			}
-
-		case FileWriteEmptySkip:
-			return
-
-		default:
-			panic(gg.Errf(`unknown FileWrite.Empty: %q`, self.Empty))
-		}
-	}
-
-	gg.WriteFile(self.Path, self.Body)
-}
-
-func WriteFile[A gg.Text](path string, src A) {
-	FileWrite{Path: path, Body: gg.ToBytes(src)}.Run()
-}
-
-func WriteFileOpt[A gg.Text](path string, src A) {
-	FileWrite{Path: path, Body: gg.ToBytes(src), Empty: FileWriteEmptyTrunc}.Run()
-}
-
 func IsErrFileNotFound(err error) bool { return errors.Is(err, os.ErrNotExist) }
 
 func LogErr(err error) {
@@ -199,6 +142,15 @@ func JsonPretty[A gg.Text](src A) A {
 
 func JsonEncodePretty[Tar gg.Text, Src any](src Src) Tar {
 	return JsonPretty(gg.JsonEncode[Tar](src))
+}
+
+/*
+Same as `json.Unmarshal` but with panics and support for arbitrary source text
+types. Same as `gg.JsonDecode` but takes `any` instead of explicit pointer.
+TODO move to `gg`.
+*/
+func JsonDecodeAny[A gg.Text](src A, out any) {
+	gg.Try(json.Unmarshal(gg.ToBytes(src), out))
 }
 
 func JsonDecodeFile[A any](path string, tar *A) {
@@ -446,4 +398,16 @@ func LoadEnvFiles() {
 // TODO move to `gg`.
 func IsTextBlank[A gg.Text](src A) bool {
 	return gg.IsTextEmpty(strings.TrimSpace(gg.ToString(src)))
+}
+
+/*
+Must be deferred. Same as `gg.Fail` but the given function is nullary.
+TODO better name and move to `gg`.
+*/
+func Fail0(fun func()) {
+	err := gg.AnyErrTracedAt(recover(), 1)
+	if err != nil && fun != nil {
+		fun()
+	}
+	gg.Try(err)
 }

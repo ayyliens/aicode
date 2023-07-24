@@ -50,21 +50,51 @@ func (self ChatCompletionMessage) GetFunctionCall() FunctionCall {
 }
 
 func (self ChatCompletionMessage) HasFunctionCall() bool {
-	return gg.IsNotZero(self.Name) || gg.IsNotZero(self.GetFunctionCall())
+	return gg.IsNotZero(self.GetFunctionCall())
+}
+
+func (self ChatCompletionMessage) HasFunctionResponse() bool {
+	return gg.IsNotZero(self.Name)
+}
+
+func (self ChatCompletionMessage) HasFunctionSomething() bool {
+	return self.HasFunctionResponse() || self.HasFunctionCall()
 }
 
 func (self ChatCompletionMessage) Ext() string {
-	if self.HasFunctionCall() {
-		return `.md`
+	if self.HasFunctionSomething() {
+		return `.yaml`
 	}
-	return `.yaml`
+	return `.md`
 }
 
-// TODO better name.
-// TODO more configurable.
+/*
+TODO better name.
+TODO more configurable.
+*/
 func (self ChatCompletionMessage) ExtBody() (string, []byte) {
-	if self.HasFunctionCall() {
+	if self.HasFunctionSomething() {
 		return `.yaml`, u.YamlEncode[[]byte](self)
 	}
 	return `.md`, gg.ToBytes(self.Content)
+}
+
+func (self ChatCompletionMessage) SkipReason() (_ string) {
+	if gg.IsZero(self.Role) {
+		return `missing role`
+	}
+
+	if self.HasFunctionSomething() {
+		return
+	}
+
+	if self.Role == ChatMessageRoleAssistant {
+		return `already from assistant`
+	}
+
+	if u.IsTextBlank(self.Content) {
+		return `empty content`
+	}
+
+	return
 }

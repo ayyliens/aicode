@@ -9,11 +9,11 @@ import (
 	"github.com/mitranim/gg/grepr"
 )
 
-func IsMsgFileNameLax(val string) bool {
-	return ReMsgFileNameLax.Get().MatchString(val)
+func IsMessageFileNameLax(val string) bool {
+	return ReMessageFileNameLax.Get().MatchString(val)
 }
 
-var ReMsgFileNameLax = gg.NewLazy(func() *regexp.Regexp {
+var ReMessageFileNameLax = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`^\d`)
 })
 
@@ -25,33 +25,33 @@ We COULD internally order by parsed indexes, but we also want to ensure that
 files are ordered the same way in all FS browsers, including the OS built-ins
 and file lists in code editors, which requires a fixed digit count.
 */
-var ReMsgFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
+var ReMessageFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`^(\d{4})_msg_([a-z][a-z\d]*)([.][a-z]+)?$`)
 })
 
-type MsgFileName struct {
+type MessageFileName struct {
 	Index int
 	Role  ChatMessageRole
 	Ext   string
 }
 
-func (self MsgFileName) IsValid() bool { return gg.IsNotZero(self.Role) }
+func (self MessageFileName) IsValid() bool { return gg.IsNotZero(self.Role) }
 
-func (self MsgFileName) String() (_ string) {
+func (self MessageFileName) String() (_ string) {
 	if !self.IsValid() {
 		return
 	}
 	return self.IndexString() + `_msg_` + string(self.Role) + self.Ext
 }
 
-func (self MsgFileName) IndexString() (_ string) {
+func (self MessageFileName) IndexString() (_ string) {
 	return u.StringPadPrefix(gg.String(self.Index), '0', 4)
 }
 
-func (self *MsgFileName) Parse(src string) (err error) {
+func (self *MessageFileName) Parse(src string) (err error) {
 	defer gg.Rec(&err)
 
-	reg := ReMsgFileNameStrict.Get()
+	reg := ReMessageFileNameStrict.Get()
 	mat := reg.FindStringSubmatch(src)
 
 	if mat == nil {
@@ -67,7 +67,7 @@ func (self *MsgFileName) Parse(src string) (err error) {
 	return
 }
 
-func (self MsgFileName) ValidateIndex(ind int) {
+func (self MessageFileName) ValidateIndex(ind int) {
 	if ind == self.Index {
 		return
 	}
@@ -79,7 +79,7 @@ func (self MsgFileName) ValidateIndex(ind int) {
 }
 
 // TODO consider validating the message.
-func (self MsgFileName) ChatCompletionMessage(path string) (out ChatCompletionMessage) {
+func (self MessageFileName) ChatCompletionMessage(path string) (out ChatCompletionMessage) {
 	defer gg.Detailf(`unable to decode msg %q`, path)
 
 	out.Role = self.Role
@@ -91,17 +91,17 @@ func (self MsgFileName) ChatCompletionMessage(path string) (out ChatCompletionMe
 
 	case `.json`:
 		u.JsonDecodeFileOpt(path, &out)
-		MsgValidateRoleMatch(path, out.Role, self.Role)
+		MessageValidateRoleMatch(path, out.Role, self.Role)
 		return
 
 	case `.yaml`:
 		u.YamlDecodeFileOpt(path, &out)
-		MsgValidateRoleMatch(path, out.Role, self.Role)
+		MessageValidateRoleMatch(path, out.Role, self.Role)
 		return
 
 	case `.toml`:
 		u.TomlDecodeFileOpt(path, &out)
-		MsgValidateRoleMatch(path, out.Role, self.Role)
+		MessageValidateRoleMatch(path, out.Role, self.Role)
 		return
 
 	default:
@@ -109,7 +109,7 @@ func (self MsgFileName) ChatCompletionMessage(path string) (out ChatCompletionMe
 	}
 }
 
-func MsgValidateRoleMatch(path string, act, exp ChatMessageRole) {
+func MessageValidateRoleMatch(path string, act, exp ChatMessageRole) {
 	if gg.NotEqNotZero(act, exp) {
 		panic(gg.Errf(
 			`unexpected role mismatch in msg %q: expected be %q or empty, found %q`,

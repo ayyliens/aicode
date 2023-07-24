@@ -6,164 +6,149 @@ import (
 	"github.com/mitranim/gg"
 )
 
-type ConvDir struct {
+type OaiConvDir struct {
 	u.Pathed
-	Msgs        []ChatCompletionMessage
+	Messages    []ChatCompletionMessage
 	ReqTemplate gg.Zop[ChatCompletionRequest]
 	ReqLatest   gg.Zop[ChatCompletionRequest]
 	ResLatest   gg.Zop[ChatCompletionResponse]
 }
 
-func (self *ConvDir) Init() { self.Read() }
+func (self *OaiConvDir) Init() { self.Read() }
 
-func (self *ConvDir) Read() {
+func (self *OaiConvDir) Read() {
 	self.ReadRequestTemplate()
 	self.ReadRequestLatest()
 	self.ReadResponseLatest()
-	self.ReadMsgs()
+	self.ReadMessages()
 }
 
-func (self *ConvDir) ReadRequestTemplate() {
+func (self *OaiConvDir) ReadRequestTemplate() {
 	tar := &self.ReqTemplate.Val
 	u.JsonDecodeFileOpt(self.RequestTemplatePath(`.json`), tar)
 	u.YamlDecodeFileOpt(self.RequestTemplatePath(`.yaml`), tar)
 	u.TomlDecodeFileOpt(self.RequestTemplatePath(`.toml`), tar)
 }
 
-func (self *ConvDir) ReadRequestLatest() {
+func (self *OaiConvDir) ReadRequestLatest() {
 	u.PolyDecodeFileOpt(self.RequestLatestPathJson(), &self.ReqLatest.Val)
 }
 
-func (self *ConvDir) ReadResponseLatest() {
+func (self *OaiConvDir) ReadResponseLatest() {
 	u.PolyDecodeFileOpt(self.ResponseLatestPath(), &self.ResLatest.Val)
 }
 
-func (self *ConvDir) ReadMsgs() {
-	for ind, path := range self.MsgFileNames() {
-		self.ReadMsgFile(path).ValidateIndex(ind)
+func (self *OaiConvDir) ReadMessages() {
+	for ind, path := range self.MessageFileNames() {
+		self.ReadMessageFile(path).ValidateIndex(ind)
 	}
-	self.ValidateMsgs()
+	self.ValidateMessages()
 }
 
-func (self *ConvDir) ReadMsgFile(name string) (out MsgFileName) {
+func (self *OaiConvDir) ReadMessageFile(name string) (out MessageFileName) {
 	gg.Try(out.Parse(name))
-	gg.Append(&self.Msgs, out.ChatCompletionMessage(self.PathJoin(name)))
+	gg.Append(&self.Messages, out.ChatCompletionMessage(self.PathJoin(name)))
 	return
 }
 
-func (self ConvDir) MsgFileNames() []string {
-	return gg.Filter(u.ReadDirFileNames(self.Path), IsMsgFileNameLax)
+func (self OaiConvDir) MessageFileNames() []string {
+	return gg.Filter(u.ReadDirFileNames(self.Path), IsMessageFileNameLax)
 }
 
 /*
 Note: the last message is meant to be a placeholder for the user, and is allowed
 to have empty content, so we don't validate it.
 */
-func (self ConvDir) ValidateMsgs() {
-	for _, msg := range gg.Init(self.Msgs) {
+func (self OaiConvDir) ValidateMessages() {
+	for _, msg := range gg.Init(self.Messages) {
 		msg.Validate()
 	}
 }
 
-func (self ConvDir) RequestTemplatePath(ext string) string {
+func (self OaiConvDir) RequestTemplatePath(ext string) string {
 	return self.PathJoin(`request_template` + ext)
 }
 
-func (self ConvDir) RequestLatestPathJson() string {
+func (self OaiConvDir) RequestLatestPathJson() string {
 	return self.PathJoin(`request_latest.json`)
 }
 
 // Can change to any extension supported by `u.PolyEncodeFileOpt`.
-func (self ConvDir) ResponseLatestPath() string {
+func (self OaiConvDir) ResponseLatestPath() string {
 	return self.PathJoin(`response_latest.json`)
 }
 
-func (self ConvDir) ResponseLatestPathJson() string {
+func (self OaiConvDir) ResponseLatestPathJson() string {
 	return self.PathJoin(`response_latest.json`)
 }
 
-func (self ConvDir) ResponseLatestErrorPathJson() string {
-	return self.PathJoin(`response_latest_error.json`)
-}
+func (self OaiConvDir) ErrorPath() string { return self.PathJoin(`error.txt`) }
 
-func (self *ConvDir) InitMsg() {
-	if gg.IsEmpty(self.Msgs) {
-		self.WriteNextMsgPlaceholderText()
+func (self *OaiConvDir) InitMessage() {
+	if gg.IsEmpty(self.Messages) {
+		self.WriteNextMessagePlaceholder()
 	}
 }
 
-func (self ConvDir) ValidMsgs() []ChatCompletionMessage {
-	return gg.Filter(self.Msgs, ChatCompletionMessage.IsValid)
+func (self OaiConvDir) ValidMessages() []ChatCompletionMessage {
+	return gg.Filter(self.Messages, ChatCompletionMessage.IsValid)
 }
 
-func (self ConvDir) ChatCompletionRequest() ChatCompletionRequest {
+func (self OaiConvDir) ChatCompletionRequest() ChatCompletionRequest {
 	tar := self.ReqTemplate.Val
 	tar.Default()
-	tar.Messages = self.ValidMsgs()
+	tar.Messages = self.ValidMessages()
 	return tar
 }
 
-func (self ConvDir) WriteRequestLatest(src ChatCompletionRequest) {
+func (self OaiConvDir) WriteRequestLatest(src ChatCompletionRequest) {
 	u.JsonEncodeFile(self.RequestLatestPathJson(), src)
 }
 
-func (self *ConvDir) WriteResponseLatest(src []byte) {
-	res := gg.JsonDecodeTo[ChatCompletionResponse](src)
-	self.ResLatest.Set(res)
-	self.WriteResponseFiles(src, res)
-	self.WriteResponseMsgs(res)
+func (self *OaiConvDir) WriteResponseJson(src []byte) {
+	u.WriteFile(self.ResponseLatestPathJson(), u.JsonPretty(src))
 }
 
-func (self *ConvDir) WriteResponseFiles(src []byte, res ChatCompletionResponse) {
-	outJson := self.ResponseLatestPathJson()
-	u.WriteFile(outJson, src)
+func (self *OaiConvDir) WriteResponseEncoded(res ChatCompletionResponse) {
+	out := self.ResponseLatestPath()
 
-	outPoly := self.ResponseLatestPath()
-	if outPoly != outJson {
-		u.PolyEncodeFileOpt(outPoly, res)
+	// Assumes that `OaiConvDir.WriteResponseJson` is called earlier.
+	// We don't want to overwrite original response JSON with JSON
+	// generated by decoding and then encoding again. The original
+	// has more information, such as fields not listed in our types.
+	if out != self.ResponseLatestPathJson() {
+		u.PolyEncodeFileOpt(out, res)
 	}
 }
 
-func (self *ConvDir) WriteResponseMsgs(res ChatCompletionResponse) {
-	choice := res.ChatCompletionChoice()
-	choice.FinishReason.Validate()
-
-	msg := choice.ChatCompletionMessage()
-	msg.Validate()
-	self.WriteNextMsg(msg)
+// Intended for error paths.
+func (self *OaiConvDir) WriteNextMessagePlaceholderOrSkip() {
+	defer gg.Skip()
+	self.WriteNextMessagePlaceholder()
 }
 
-func (self *ConvDir) WriteNextMsg(msg ChatCompletionMessage) {
-	self.WriteMsg(msg)
-	self.WriteNextMsgPlaceholder(msg)
-}
-
-func (self *ConvDir) WriteNextMsgPlaceholder(src ChatCompletionMessage) {
-	call := src.GetFunctionCall()
-	if gg.IsZero(call) {
-		self.WriteNextMsgPlaceholderText()
-	} else {
-		self.WriteNextMsgPlaceholderFunctionCall(call)
-	}
-}
-
-func (self *ConvDir) WriteNextMsgPlaceholderText() {
+func (self *OaiConvDir) WriteNextMessagePlaceholder() {
 	var tar ChatCompletionMessage
 	tar.Role = ChatMessageRoleUser
-	self.WriteMsg(tar)
+	self.WriteNextMessage(tar)
 }
 
-func (self *ConvDir) WriteNextMsgPlaceholderFunctionCall(src FunctionCall) {
+func (self *OaiConvDir) WriteNextMessageFunctionResponse(name FunctionName, body string) {
 	var tar ChatCompletionMessage
 	tar.Role = ChatMessageRoleFunction
-	tar.Name = src.Name
-	self.WriteMsg(tar)
+	tar.Name = name
+	tar.Content = body
+	self.WriteNextMessage(tar)
 }
 
-func (self *ConvDir) WriteMsg(src ChatCompletionMessage) {
+func (self *OaiConvDir) WriteNextMessageFunctionResponsePlaceholder(src FunctionCall) {
+	self.WriteNextMessageFunctionResponse(src.Name, ``)
+}
+
+func (self *OaiConvDir) WriteNextMessage(src ChatCompletionMessage) {
 	ext, body := src.ExtBody()
 
-	var tar MsgFileName
+	var tar MessageFileName
 	tar.Index = self.NextIndex()
 	tar.Role = src.Role
 	tar.Ext = ext
@@ -173,20 +158,21 @@ func (self *ConvDir) WriteMsg(src ChatCompletionMessage) {
 		Body:  body,
 		Mkdir: true,
 	}.Run()
-	gg.Append(&self.Msgs, src)
+
+	gg.Append(&self.Messages, src)
 }
 
-func (self ConvDir) NextIndex() int { return len(self.Msgs) }
+func (self OaiConvDir) NextIndex() int { return len(self.Messages) }
 
-func (self ConvDir) LogWriteErr(err error) {
+func (self OaiConvDir) LogWriteErr(err error) {
 	u.LogErr(err)
 	defer gg.Skip()
 	self.WriteErr(err)
 }
 
-func (self ConvDir) WriteErr(err error) {
+func (self OaiConvDir) WriteErr(err error) {
 	u.FileWrite{
-		Path:  self.ResponseLatestErrorPathJson(),
+		Path:  self.ErrorPath(),
 		Body:  gg.ToBytes(u.FormatVerbose(err)),
 		Empty: u.FileWriteEmptyTrunc,
 	}.Run()

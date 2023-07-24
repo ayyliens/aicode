@@ -9,15 +9,18 @@ import (
 )
 
 /*
-Example usage:
+Examples:
 
-	make go.run run='cmd_conv_dir --path local/conv'
-	make go.run.w run='cmd_conv_dir --path local/conv --watch --init'
+	make go.run run='cmd_conv_dir --path=local/conv'
+	make go.run.w run='cmd_conv_dir --path=local/conv --watch --init'
+	make go.run.w run='cmd_conv_dir --path=local/conv --out-path=local/conv/files --watch --funcs'
 */
 type CmdOaiConvDir struct {
-	Path string `flag:"--path" desc:"directory path (required)"`
 	CmdOaiCommon
-	ApiKey string
+	ApiKey  string
+	Path    string `flag:"--path"     desc:"directory path (required)"`
+	OutPath string `flag:"--out-path" desc:"directory path for output files"`
+	Funcs   bool   `flag:"--funcs"    desc:"automatically run registered functions"`
 }
 
 func (self CmdOaiConvDir) RunCli() {
@@ -36,6 +39,12 @@ func (self CmdOaiConvDir) Run() {
 	cli.ApiKey = self.ApiKey
 	cli.Path = self.Path
 	cli.Verb = true
+
+	if self.Funcs && gg.IsNotZero(self.OutPath) {
+		cli.Functions.Add(`write_files`, &FunctionWriteFiles{
+			Path: self.OutPath,
+		})
+	}
 
 	if self.Watch {
 		cli.Init = self.Init
