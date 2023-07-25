@@ -2,6 +2,7 @@ package oai
 
 import (
 	"_/go/u"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -83,6 +84,7 @@ func (self MessageFileName) ChatCompletionMessage(path string) (out ChatCompleti
 	defer gg.Detailf(`unable to decode msg %q`, path)
 
 	out.Role = self.Role
+	out.FileName = filepath.Base(path)
 
 	switch self.Ext {
 	case ``, `.txt`, `.md`:

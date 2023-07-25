@@ -91,6 +91,10 @@ func ReadFileOpt[A gg.Text](path string) A {
 
 func IsErrFileNotFound(err error) bool { return errors.Is(err, os.ErrNotExist) }
 
+func RemoveFileOrDir(path string) { gg.Try(os.Remove(path)) }
+
+func RemoveFileOrDirOpt(path string) { gg.Nop1(os.Remove(path)) }
+
 func LogErr(err error) {
 	if err == nil {
 		return
@@ -107,7 +111,7 @@ func Wait(ctx Ctx, dur time.Duration) {
 }
 
 func PolyDecodeFileOpt[A any](path string, tar *A) {
-	ext := filepath.Ext(path)
+	ext := FileExt(path)
 
 	switch ext {
 	case `.json`:
@@ -122,7 +126,7 @@ func PolyDecodeFileOpt[A any](path string, tar *A) {
 }
 
 func PolyEncodeFileOpt[A any](path string, src A) {
-	ext := filepath.Ext(path)
+	ext := FileExt(path)
 
 	switch ext {
 	case `.json`:
@@ -410,4 +414,22 @@ func Fail0(fun func()) {
 		fun()
 	}
 	gg.Try(err)
+}
+
+/*
+Workaround for the issue where `filepath.Ext` incorrectly reports non-empty
+extensions for file names such as `.blah` where `.blah` is the file name,
+not the extension.
+
+TODO: make this work for both Unix and Windows paths.
+*/
+func FileExt(src string) string {
+	name := filepath.Base(src)
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+
+	if base == `` {
+		return ``
+	}
+	return ext
 }

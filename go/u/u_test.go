@@ -50,3 +50,22 @@ func Test_PkgRelPath(t *testing.T) {
 		u.PkgRoot(),
 	))
 }
+
+func Test_FileExt(t *testing.T) {
+	defer gtest.Catch(t)
+
+	gtest.Eq(ut.FileExt(``), ``)
+
+	gtest.Eq(ut.FileExt(`one`), ``)
+	gtest.Eq(ut.FileExt(`.one`), ``)
+	gtest.Eq(ut.FileExt(`one.`), `.`)
+	gtest.Eq(ut.FileExt(`one.two`), `.two`)
+
+	gtest.Eq(ut.FileExt(`one/two`), ``)
+	gtest.Eq(ut.FileExt(`one/two.`), `.`)
+	gtest.Eq(ut.FileExt(`one/two.three`), `.three`)
+	gtest.Eq(ut.FileExt(`one.two/three`), ``)
+	gtest.Eq(ut.FileExt(`one.two/.three`), ``)
+	gtest.Eq(ut.FileExt(`one.two/three.`), `.`)
+	gtest.Eq(ut.FileExt(`one.two/three.four`), `.four`)
+}

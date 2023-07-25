@@ -15,7 +15,6 @@ Example usage:
 	make go.run.w run='cmd_conv_file --path local/conv.json --watch --init'
 */
 type CmdOaiConvFile struct {
-	Path string `flag:"--path" desc:"file path (required)"`
 	CmdOaiCommon
 	ApiKey string
 }

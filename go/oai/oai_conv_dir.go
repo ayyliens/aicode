@@ -2,6 +2,7 @@ package oai
 
 import (
 	"_/go/u"
+	"log"
 
 	"github.com/mitranim/gg"
 )
@@ -38,6 +39,12 @@ func (self *OaiConvDir) ReadResponseLatest() {
 	u.PolyDecodeFileOpt(self.ResponseLatestPath(), &self.ResLatest.Val)
 }
 
+/*
+TODO consider preserving file names when reading and writing messages.
+File names would be a "secret" field not exposed in JSON. This would be
+useful for operations that involve comparing file names, comparing paths,
+etc.
+*/
 func (self *OaiConvDir) ReadMessages() {
 	for ind, path := range self.MessageFileNames() {
 		self.ReadMessageFile(path).ValidateIndex(ind)
@@ -153,8 +160,11 @@ func (self *OaiConvDir) WriteNextMessage(src ChatCompletionMessage) {
 	tar.Role = src.Role
 	tar.Ext = ext
 
+	name := tar.String()
+	src.FileName = name
+
 	u.FileWrite{
-		Path:  self.PathJoin(tar.String()),
+		Path:  self.PathJoin(name),
 		Body:  body,
 		Mkdir: true,
 	}.Run()
@@ -176,4 +186,37 @@ func (self OaiConvDir) WriteErr(err error) {
 		Body:  gg.ToBytes(u.FormatVerbose(err)),
 		Empty: u.FileWriteEmptyTrunc,
 	}.Run()
+}
+
+func (self OaiConvDir) CanTrunc(name string) bool {
+	return gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessage) bool {
+		return val.FileName == name
+	})
+}
+
+func (self *OaiConvDir) TruncMessagesAndFilesAfterMessageFileName(
+	name string,
+	verb u.Verbose,
+) {
+	if !self.CanTrunc(name) {
+		return
+	}
+
+	if verb.Verb {
+		log.Printf(`truncating messages after %q`, name)
+	}
+
+	for gg.IsNotEmpty(self.Messages) {
+		msg := gg.Last(self.Messages)
+		if msg.FileName == name {
+			return
+		}
+
+		if verb.Verb {
+			log.Printf(`removing message %q`, msg.FileName)
+		}
+
+		u.RemoveFileOrDir(self.PathJoin(msg.FileName))
+		self.Messages = gg.Init(self.Messages)
+	}
 }

@@ -11,10 +11,14 @@ Note: due to issues/limitations of OpenAI JSON API, we have to use `name` with
 `,omitempty` but `content` without `,omitempty`.
 */
 type ChatCompletionMessage struct {
+	// The following fields are part of the OpenAI API.
 	Role         ChatMessageRole `json:"role,omitempty"          yaml:"role,omitempty"          toml:"role,omitempty"`
 	Name         FunctionName    `json:"name,omitempty"          yaml:"name,omitempty"          toml:"name,omitempty"`
 	Content      string          `json:"content"                 yaml:"content,omitempty"       toml:"content,omitempty"`
 	FunctionCall *FunctionCall   `json:"function_call,omitempty" yaml:"function_call,omitempty" toml:"function_call,omitempty"`
+
+	// The following fields are used internally by us.
+	FileName string `json:"-" yaml:"-" toml:"-"`
 }
 
 func (self ChatCompletionMessage) IsValid() bool {
@@ -61,7 +65,11 @@ func (self ChatCompletionMessage) HasFunctionSomething() bool {
 	return self.HasFunctionResponse() || self.HasFunctionCall()
 }
 
+// TODO more configurable.
 func (self ChatCompletionMessage) Ext() string {
+	if gg.IsNotZero(self.FileName) {
+		return u.FileExt(self.FileName)
+	}
 	if self.HasFunctionSomething() {
 		return `.yaml`
 	}
@@ -73,10 +81,11 @@ TODO better name.
 TODO more configurable.
 */
 func (self ChatCompletionMessage) ExtBody() (string, []byte) {
-	if self.HasFunctionSomething() {
-		return `.yaml`, u.YamlEncode[[]byte](self)
+	ext := self.Ext()
+	if ext == `.yaml` {
+		return ext, u.YamlEncode[[]byte](self)
 	}
-	return `.md`, gg.ToBytes(self.Content)
+	return ext, gg.ToBytes(self.Content)
 }
 
 func (self ChatCompletionMessage) SkipReason() (_ string) {

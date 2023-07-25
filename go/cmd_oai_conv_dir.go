@@ -20,9 +20,9 @@ Be cautious: files in target directory may be overwritten with no recovery.
 type CmdOaiConvDir struct {
 	CmdOaiCommon
 	ApiKey  string
-	Path    string `flag:"--path"     desc:"directory path (required)"`
 	OutPath string `flag:"--out-path" desc:"directory path for output files"`
 	Funcs   bool   `flag:"--funcs"    desc:"automatically run registered functions"`
+	Trunc   bool   `flag:"--trunc"    desc:"support conversation truncation"`
 }
 
 func (self CmdOaiConvDir) RunCli() {
@@ -37,9 +37,13 @@ func (self CmdOaiConvDir) Run() {
 
 	ctx := context.Background()
 
+	// TODO consider deduping fields between lib type and CLI type.
+	// The duplication exists because it's not traditional for library
+	// utility types to define CLI "flag" field annotations.
 	var cli oai.OaiClientConvDir
 	cli.ApiKey = self.ApiKey
 	cli.Path = self.Path
+	cli.Trunc = self.Trunc
 	cli.Verb = true
 
 	if self.Funcs {

@@ -101,3 +101,10 @@ func (self Watcher[_]) wait(ctx Ctx) {
 func (self Watcher[_]) getDelay() time.Duration {
 	return gg.Or(self.Delay, time.Millisecond*100)
 }
+
+func NotifyEventPath(eve notify.EventInfo) (_ string) {
+	if eve != nil {
+		return eve.Path()
+	}
+	return
+}

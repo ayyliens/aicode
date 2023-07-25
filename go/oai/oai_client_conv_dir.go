@@ -3,6 +3,7 @@ package oai
 import (
 	"_/go/u"
 	"log"
+	"path/filepath"
 
 	"github.com/mitranim/gg"
 	"github.com/mitranim/gg/grepr"
@@ -15,6 +16,7 @@ type OaiClientConvDir struct {
 	u.Verbose
 	u.Inited
 	Functions OaiFunctions
+	Trunc     bool
 }
 
 func (self OaiClientConvDir) Watch(ctx u.Ctx) {
@@ -34,14 +36,14 @@ func (self OaiClientConvDir) InitMessage() {
 	gg.Ptr(self.OaiConvDirInit()).InitMessage()
 }
 
-func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, _ notify.EventInfo) {
+func (self OaiClientConvDir) Run(ctx u.Ctx) { self.RunOnFsEvent(ctx, nil) }
+
+func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	defer gg.RecWith(u.LogErr)
-	self.Run(ctx)
+	self.RunOnFsEvent(ctx, eve)
 }
 
-func (self OaiClientConvDir) Run(ctx u.Ctx) {
-	defer gg.RecWith(u.LogErr)
-
+func (self OaiClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	dir := self.OaiConvDirInit()
 	defer gg.Finally(dir.LogWriteErr)
 
@@ -50,6 +52,23 @@ func (self OaiClientConvDir) Run(ctx u.Ctx) {
 			log.Println(`skipping: no messages found`)
 		}
 		return
+	}
+
+	baseName := filepath.Base(u.NotifyEventPath(eve))
+	trunc := self.Trunc &&
+		eve != nil &&
+		eve.Event() == notify.Write &&
+		dir.CanTrunc(baseName)
+
+	// TODO: ideally we would truncate AFTER making the request.
+	// Also TODO: truncation should "trash" files, making recovery possible.
+	// Also TODO: we should also support automatic conv forking as a superior
+	// alternative to deleting files.
+	if trunc {
+		dir.TruncMessagesAndFilesAfterMessageFileName(
+			filepath.Base(eve.Path()),
+			self.Verbose,
+		)
 	}
 
 	msg := gg.Last(dir.Messages)

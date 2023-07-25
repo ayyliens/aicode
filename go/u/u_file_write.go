@@ -1,7 +1,6 @@
 package u
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/mitranim/gg"
@@ -42,7 +41,7 @@ func (self FileWrite) Run() {
 			break
 
 		case FileWriteEmptyDelete:
-			gg.Nop1(os.Remove(self.Path))
+			RemoveFileOrDirOpt(self.Path)
 
 		case FileWriteEmptyTrunc:
 			if !gg.FileExists(self.Path) {
