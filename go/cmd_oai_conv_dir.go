@@ -11,9 +11,9 @@ import (
 /*
 Examples:
 
-	make go.run run='cmd_conv_dir --path=local/conv'
-	make go.run.w run='cmd_conv_dir --path=local/conv --watch --init'
-	make go.run.w run='cmd_conv_dir --path=local/conv --out-path=local/conv/files --watch --funcs'
+	make go.run run='oai_conv_dir --path=local/conv'
+	make go.run.w run='oai_conv_dir --path=local/conv --watch --init'
+	make go.run.w run='oai_conv_dir --path=local/conv --out-path=local/conv/files --watch --funcs'
 
 Be cautious: files in target directory may be overwritten with no recovery.
 */

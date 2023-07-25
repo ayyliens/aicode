@@ -11,8 +11,8 @@ import (
 /*
 Example usage:
 
-	make go.run run='cmd_conv_file --path local/conv.json'
-	make go.run.w run='cmd_conv_file --path local/conv.json --watch --init'
+	make go.run run='oai_conv_file --path local/conv.json'
+	make go.run.w run='oai_conv_file --path local/conv.json --watch --init'
 */
 type CmdOaiConvFile struct {
 	CmdOaiCommon
