@@ -3,7 +3,6 @@ package oai
 import (
 	"_/go/u"
 	"log"
-	"path/filepath"
 
 	"github.com/mitranim/gg"
 )
@@ -72,32 +71,6 @@ func (self OaiConvDir) ValidateMessages() {
 	}
 }
 
-func (self OaiConvDir) IndexedDirName() (out IndexedDirName) {
-	gg.Try(out.Parse(filepath.Base(self.Path)))
-	return
-}
-
-/*
-Returns a list of parsed "sibling" directory names in the parent directory of
-the given conversation directory, including its own.
-*/
-func (self OaiConvDir) IndexedDirNames() []IndexedDirName {
-	own := self.IndexedDirName()
-
-	// TODO cleaner code.
-	return gg.MapCompact(
-		u.ReadDirDirNames(filepath.Dir(self.Path)),
-		func(src string) (_ IndexedDirName) {
-			var tar IndexedDirName
-			gg.Try(tar.Parse(src))
-			if tar.Base == own.Base {
-				return tar
-			}
-			return
-		},
-	)
-}
-
 func (self OaiConvDir) RequestTemplatePath(ext string) string {
 	return self.PathJoin(`request_template` + ext)
 }
@@ -116,6 +89,8 @@ func (self OaiConvDir) ResponseLatestPathJson() string {
 }
 
 func (self OaiConvDir) ErrorPath() string { return self.PathJoin(`error.txt`) }
+
+func (self OaiConvDir) ForkPath() string { return u.IndexedDirForkPath(self.Path) }
 
 func (self *OaiConvDir) InitMessage() {
 	if gg.IsEmpty(self.Messages) {
@@ -245,12 +220,4 @@ func (self *OaiConvDir) TruncMessagesAndFilesAfterMessageFileName(
 		u.RemoveFileOrDir(self.PathJoin(msg.FileName))
 		self.Messages = gg.Init(self.Messages)
 	}
-}
-
-func (self OaiConvDir) ForkPath() string {
-	return u.ReplaceBaseName(self.Path, self.IncName().String())
-}
-
-func (self OaiConvDir) IncName() IndexedDirName {
-	return gg.Max(self.IndexedDirNames()...).Inc()
 }

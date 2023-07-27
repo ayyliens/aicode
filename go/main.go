@@ -19,6 +19,7 @@ func main() {
 	cmd.Map{
 		`oai_conv_file`: CmdOaiConvFile{ApiKey: key}.RunCli,
 		`oai_conv_dir`:  CmdOaiConvDir{ApiKey: key}.RunCli,
+		`fork_dir`:      CmdForkDir{}.RunCli,
 
 		// May be helpful for generating JSON schemas for request templates.
 		// Substitute the input type as needed.
