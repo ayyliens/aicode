@@ -184,7 +184,7 @@ func (self OaiConvDir) WriteErr(err error) {
 	u.FileWrite{
 		Path:  self.ErrorPath(),
 		Body:  gg.ToBytes(u.FormatVerbose(err)),
-		Empty: u.FileWriteEmptyTrunc,
+		Empty: u.FileWriteEmptyDelete,
 	}.Run()
 }
 
