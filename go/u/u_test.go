@@ -54,18 +54,33 @@ func Test_PkgRelPath(t *testing.T) {
 func Test_FileExt(t *testing.T) {
 	defer gtest.Catch(t)
 
-	gtest.Eq(ut.FileExt(``), ``)
+	gtest.Eq(u.FileExt(``), ``)
 
-	gtest.Eq(ut.FileExt(`one`), ``)
-	gtest.Eq(ut.FileExt(`.one`), ``)
-	gtest.Eq(ut.FileExt(`one.`), `.`)
-	gtest.Eq(ut.FileExt(`one.two`), `.two`)
+	gtest.Eq(u.FileExt(`one`), ``)
+	gtest.Eq(u.FileExt(`.one`), ``)
+	gtest.Eq(u.FileExt(`one.`), `.`)
+	gtest.Eq(u.FileExt(`one.two`), `.two`)
 
-	gtest.Eq(ut.FileExt(`one/two`), ``)
-	gtest.Eq(ut.FileExt(`one/two.`), `.`)
-	gtest.Eq(ut.FileExt(`one/two.three`), `.three`)
-	gtest.Eq(ut.FileExt(`one.two/three`), ``)
-	gtest.Eq(ut.FileExt(`one.two/.three`), ``)
-	gtest.Eq(ut.FileExt(`one.two/three.`), `.`)
-	gtest.Eq(ut.FileExt(`one.two/three.four`), `.four`)
+	gtest.Eq(u.FileExt(`one/two`), ``)
+	gtest.Eq(u.FileExt(`one/two.`), `.`)
+	gtest.Eq(u.FileExt(`one/two.three`), `.three`)
+	gtest.Eq(u.FileExt(`one.two/three`), ``)
+	gtest.Eq(u.FileExt(`one.two/.three`), ``)
+	gtest.Eq(u.FileExt(`one.two/three.`), `.`)
+	gtest.Eq(u.FileExt(`one.two/three.four`), `.four`)
+}
+
+func Test_filepath_Join_appending_absolute_path(t *testing.T) {
+	defer gtest.Catch(t)
+
+	const baseDirName = `/tmp/os_temp_dir`
+	const tempDirName = `tool_name`
+	const pathSuffix = `/one/two/three`
+
+	tar := filepath.Join(baseDirName, tempDirName, pathSuffix)
+
+	gtest.Eq(
+		tar,
+		`/tmp/os_temp_dir/tool_name/one/two/three`,
+	)
 }

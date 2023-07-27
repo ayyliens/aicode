@@ -3,6 +3,7 @@ package oai
 import (
 	"_/go/u"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/mitranim/gg"
@@ -10,17 +11,28 @@ import (
 	"github.com/rjeczalik/notify"
 )
 
+/*
+Short for "OpenAI client for/with conversation directory".
+
+TODO:
+
+	* Support simultaneously watching and operating on multiple directories.
+	  The user should watch an "ancestor" dir, and we should operate on all
+	  nested directories that appear to be "conv" dirs.
+*/
 type OaiClientConvDir struct {
 	OaiClient
 	u.Pathed
 	u.Verbose
 	u.Inited
 	Functions OaiFunctions
-	Trunc     bool
+	Trunc     bool // Only for watch mode.
+	Fork      bool // Only for watch mode.
 }
 
 func (self OaiClientConvDir) Watch(ctx u.Ctx) {
 	self.InitMessage()
+	self.InitBackupOpt()
 
 	u.Watcher[OaiClientConvDir]{
 		Runner: self,
@@ -55,20 +67,16 @@ func (self OaiClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	}
 
 	baseName := filepath.Base(u.NotifyEventPath(eve))
-	trunc := self.Trunc &&
-		eve != nil &&
-		eve.Event() == notify.Write &&
-		dir.CanTrunc(baseName)
+	hasInter := dir.HasIntermediateMessage(baseName)
+	isInterWrite := eve != nil && eve.Event() == notify.Write && hasInter
 
-	// TODO: ideally we would truncate AFTER making the request.
-	// Also TODO: truncation should "trash" files, making recovery possible.
-	// Also TODO: we should also support automatic conv forking as a superior
-	// alternative to deleting files.
-	if trunc {
-		dir.TruncMessagesAndFilesAfterMessageFileName(
-			filepath.Base(eve.Path()),
-			self.Verbose,
-		)
+	if isInterWrite {
+		if self.Fork {
+			self.ForkFromBackup(dir.ForkPath())
+		}
+		if self.Trunc {
+			dir.TruncMessagesAndFilesAfterMessageFileName(baseName, self.Verbose)
+		}
 	}
 
 	msg := gg.Last(dir.Messages)
@@ -112,14 +120,6 @@ func (self OaiClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	self.RunFunction(dir, call)
 }
 
-/*
-TODO consider more flexible error handling. In addition to logging an error, we
-could also create a regular msg placeholder (text/markdown) instead of a
-function response msg placeholder, so the user can continue the conversation
-more easily. This might be part of a normal workflow because bots may produce
-malformed outputs at first, and then be cajoled into producing something
-usable.
-*/
 func (self OaiClientConvDir) RunFunction(dir OaiConvDir, call FunctionCall) {
 	/**
 	If we fail to process the function call, then in addition to logging the
@@ -149,15 +149,10 @@ func (self OaiClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName
 		return
 	}
 
-	// Note: each registered func must be a pointer.
-	// This is enforced by `OaiFunctions`.
-	u.JsonDecodeAny(arg, fun)
-
 	if self.Verb {
 		defer gg.LogTimeNow(`running function `, grepr.String(name)).LogStart().LogEnd()
 	}
-
-	return fun.OaiCall()
+	return fun.OaiCall(arg)
 }
 
 func (self OaiClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest) []byte {
@@ -167,8 +162,42 @@ func (self OaiClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletio
 	return self.ChatCompletionBody(ctx, req)
 }
 
-func (self OaiClientConvDir) OaiConvDirInit() (out OaiConvDir) {
+func (self *OaiClientConvDir) OaiConvDirInit() (out OaiConvDir) {
 	out.Path = self.Path
-	out.Init()
+	out.Read()
 	return
+}
+
+func (self OaiClientConvDir) BackupDirPath() string {
+	/**
+	See `Test_filepath_Join_appending_absolute_path`. On Unix, appending
+	an "absolute" path to another path works fine, treating the absolute path
+	as if it was relative. However, this may not work on Windows. TODO verify.
+	*/
+	return filepath.Join(os.TempDir(), TempDirName, gg.Try1(filepath.Abs(self.Path)))
+}
+
+func (self OaiClientConvDir) InitBackupOpt() {
+	if self.Fork {
+		self.InitBackup()
+	}
+}
+
+func (self OaiClientConvDir) InitBackup() {
+	src := self.Path
+	tar := self.BackupDirPath()
+
+	if self.Verb {
+		log.Printf(`creating backup of directory %q at %q for forking`, src, tar)
+	}
+
+	u.RemoveFileOrDirOpt(tar)
+	u.CopyDirRec(src, tar)
+}
+
+func (self OaiClientConvDir) ForkFromBackup(tar string) {
+	if self.Verb {
+		log.Printf(`forking directory %q to %q`, self.Path, tar)
+	}
+	u.CopyDirRec(self.BackupDirPath(), tar)
 }

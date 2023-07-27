@@ -89,6 +89,41 @@ func ReadFileOpt[A gg.Text](path string) A {
 	return gg.ReadFile[A](path)
 }
 
+/*
+Stands for "copy directory recursive". Caution: parameter order is inconsistent
+with built-in `copy` and `io.Copy`.
+
+TODO: validate that the source and destination directories are not ancestor or
+descendant of each other.
+*/
+func CopyDirRec(src, out string) {
+	var exists bool
+
+	for _, entry := range ReadDirOpt(src) {
+		exists = exists || TouchedDirRec(out)
+
+		srcPath := filepath.Join(src, entry.Name())
+		outPath := filepath.Join(out, entry.Name())
+
+		if entry.IsDir() {
+			CopyDirRec(srcPath, outPath)
+		} else {
+			CopyFile(srcPath, outPath)
+		}
+	}
+}
+
+// Caution: parameter order is inconsistent with built-in `copy` and `io.Copy`.
+func CopyFile(srcPath, outPath string) {
+	src := gg.Try1(os.Open(srcPath))
+	defer gg.Close(src)
+
+	out := gg.Try1(os.Create(outPath))
+	defer gg.Close(out)
+
+	gg.Try1(io.Copy(out, src))
+}
+
 func IsErrFileNotFound(err error) bool { return errors.Is(err, os.ErrNotExist) }
 
 func RemoveFileOrDir(path string) { gg.Try(os.Remove(path)) }
@@ -295,6 +330,18 @@ func dirEntryToFileName(src fs.DirEntry) (_ string) {
 	return src.Name()
 }
 
+// TODO better name. TODO move to `gg`.
+func ReadDirDirNames(path string) []string {
+	return gg.MapCompact(ReadDirOpt(path), dirEntryToDirName)
+}
+
+func dirEntryToDirName(src fs.DirEntry) (_ string) {
+	if src == nil || !src.IsDir() {
+		return
+	}
+	return src.Name()
+}
+
 type Pathed struct{ Path string }
 
 func (self Pathed) PathJoin(path string) string {
@@ -311,6 +358,10 @@ func StringPadPrefix(src string, char rune, count int) string {
 	buf.AppendRuneN(char, count-gg.CharCount(src))
 	buf.AppendString(src)
 	return buf.String()
+}
+
+func NumToPaddedString[A gg.Num](src A) string {
+	return StringPadPrefix(gg.String(src), '0', 4)
 }
 
 func FormatVerbose(src any) string {
@@ -432,4 +483,12 @@ func FileExt(src string) string {
 		return ``
 	}
 	return ext
+}
+
+func ReplaceBaseName(src, name string) string {
+	return filepath.Join(filepath.Dir(src), name)
+}
+
+func IsErrContextCancel(err error) bool {
+	return errors.Is(err, context.Canceled)
 }

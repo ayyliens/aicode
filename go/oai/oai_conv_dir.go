@@ -3,10 +3,12 @@ package oai
 import (
 	"_/go/u"
 	"log"
+	"path/filepath"
 
 	"github.com/mitranim/gg"
 )
 
+// Short for "OpenAI conversation directory".
 type OaiConvDir struct {
 	u.Pathed
 	Messages    []ChatCompletionMessage
@@ -14,8 +16,6 @@ type OaiConvDir struct {
 	ReqLatest   gg.Zop[ChatCompletionRequest]
 	ResLatest   gg.Zop[ChatCompletionResponse]
 }
-
-func (self *OaiConvDir) Init() { self.Read() }
 
 func (self *OaiConvDir) Read() {
 	self.ReadRequestTemplate()
@@ -70,6 +70,32 @@ func (self OaiConvDir) ValidateMessages() {
 	for _, msg := range gg.Init(self.Messages) {
 		msg.Validate()
 	}
+}
+
+func (self OaiConvDir) IndexedDirName() (out IndexedDirName) {
+	gg.Try(out.Parse(filepath.Base(self.Path)))
+	return
+}
+
+/*
+Returns a list of parsed "sibling" directory names in the parent directory of
+the given conversation directory, including its own.
+*/
+func (self OaiConvDir) IndexedDirNames() []IndexedDirName {
+	own := self.IndexedDirName()
+
+	// TODO cleaner code.
+	return gg.MapCompact(
+		u.ReadDirDirNames(filepath.Dir(self.Path)),
+		func(src string) (_ IndexedDirName) {
+			var tar IndexedDirName
+			gg.Try(tar.Parse(src))
+			if tar.Base == own.Base {
+				return tar
+			}
+			return
+		},
+	)
 }
 
 func (self OaiConvDir) RequestTemplatePath(ext string) string {
@@ -156,25 +182,24 @@ func (self *OaiConvDir) WriteNextMessage(src ChatCompletionMessage) {
 	ext, body := src.ExtBody()
 
 	var tar MessageFileName
-	tar.Index = self.NextIndex()
+	tar.Index = gg.NumConv[uint](self.NextIndex())
 	tar.Role = src.Role
 	tar.Ext = ext
 
 	name := tar.String()
 	src.FileName = name
 
-	u.FileWrite{
-		Path:  self.PathJoin(name),
-		Body:  body,
-		Mkdir: true,
-	}.Run()
-
+	u.WriteFileRec(self.PathJoin(name), body)
 	gg.Append(&self.Messages, src)
 }
 
 func (self OaiConvDir) NextIndex() int { return len(self.Messages) }
 
 func (self OaiConvDir) LogWriteErr(err error) {
+	if u.IsErrContextCancel(err) {
+		return
+	}
+
 	u.LogErr(err)
 	defer gg.Skip()
 	self.WriteErr(err)
@@ -188,17 +213,18 @@ func (self OaiConvDir) WriteErr(err error) {
 	}.Run()
 }
 
-func (self OaiConvDir) CanTrunc(name string) bool {
-	return gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessage) bool {
-		return val.FileName == name
-	})
+func (self OaiConvDir) HasIntermediateMessage(name string) bool {
+	return gg.IsNotZero(name) &&
+		gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessage) bool {
+			return val.FileName == name
+		})
 }
 
 func (self *OaiConvDir) TruncMessagesAndFilesAfterMessageFileName(
 	name string,
 	verb u.Verbose,
 ) {
-	if !self.CanTrunc(name) {
+	if !self.HasIntermediateMessage(name) {
 		return
 	}
 
@@ -219,4 +245,12 @@ func (self *OaiConvDir) TruncMessagesAndFilesAfterMessageFileName(
 		u.RemoveFileOrDir(self.PathJoin(msg.FileName))
 		self.Messages = gg.Init(self.Messages)
 	}
+}
+
+func (self OaiConvDir) ForkPath() string {
+	return u.ReplaceBaseName(self.Path, self.IncName().String())
+}
+
+func (self OaiConvDir) IncName() IndexedDirName {
+	return gg.Max(self.IndexedDirNames()...).Inc()
 }

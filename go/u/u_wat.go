@@ -14,6 +14,12 @@ type FsEventer interface {
 	OnFsEvent(Ctx, notify.EventInfo)
 }
 
+/*
+TODO: new FS events should kill the current call to `.Runner.OnFsEvent` by
+canceling the context passed to it. There are common cases where multiple FS
+events are generated almost simultaneously, for example when multiple files are
+saved at once. Killing and restarting prevents inconsistent states.
+*/
 type Watcher[A FsEventer] struct {
 	Runner A
 	Path   string

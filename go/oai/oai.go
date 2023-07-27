@@ -1,3 +1,5 @@
 package oai
 
-type OaiFunction interface{ OaiCall() string }
+const TempDirName = `aicode`
+
+type OaiFunction interface{ OaiCall(string) string }

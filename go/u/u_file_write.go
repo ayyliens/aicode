@@ -66,3 +66,7 @@ func WriteFile[A gg.Text](path string, src A) {
 func WriteFileOpt[A gg.Text](path string, src A) {
 	FileWrite{Path: path, Body: gg.ToBytes(src), Empty: FileWriteEmptyTrunc}.Run()
 }
+
+func WriteFileRec[A gg.Text](path string, src A) {
+	FileWrite{Path: path, Body: gg.ToBytes(src), Mkdir: true}.Run()
+}

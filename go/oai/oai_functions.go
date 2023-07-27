@@ -1,8 +1,6 @@
 package oai
 
 import (
-	r "reflect"
-
 	"github.com/mitranim/gg"
 )
 
@@ -30,15 +28,6 @@ func (self *OaiFunctions) Set(key FunctionName, val OaiFunction) {
 	if val == nil {
 		panic(gg.Errf(`unexpected nil function %q`, key))
 	}
-
-	kind := r.TypeOf(val).Kind()
-	if kind != r.Ptr {
-		panic(gg.Errf(
-			`unexpected non-pointer function %q of type %T; found kind: %q; function values must be pointers because we decode function call arguments into them`,
-			key, val, kind,
-		))
-	}
-
 	self.OrdMap().Set(key, val)
 }
 

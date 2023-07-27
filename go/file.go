@@ -8,8 +8,8 @@ import (
 )
 
 type File struct {
-	Name string `json:"name"`
-	Body string `json:"body"`
+	Name string `json:"name" desc:"file name (must be local, without directory)"`
+	Body string `json:"body" desc:"file content"`
 }
 
 func (self File) Validate() {
@@ -23,10 +23,5 @@ func (self File) Validate() {
 
 func (self File) WriteTo(out string) {
 	self.Validate()
-
-	u.FileWrite{
-		Path:  filepath.Join(out, self.Name),
-		Body:  gg.ToBytes(self.Body),
-		Mkdir: true,
-	}.Run()
+	u.WriteFileRec(filepath.Join(out, self.Name), self.Body)
 }

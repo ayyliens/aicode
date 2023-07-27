@@ -31,7 +31,7 @@ var ReMessageFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
 })
 
 type MessageFileName struct {
-	Index int
+	Index uint
 	Role  ChatMessageRole
 	Ext   string
 }
@@ -45,8 +45,8 @@ func (self MessageFileName) String() (_ string) {
 	return self.IndexString() + `_msg_` + string(self.Role) + self.Ext
 }
 
-func (self MessageFileName) IndexString() (_ string) {
-	return u.StringPadPrefix(gg.String(self.Index), '0', 4)
+func (self MessageFileName) IndexString() string {
+	return u.NumToPaddedString(self.Index)
 }
 
 func (self *MessageFileName) Parse(src string) (err error) {
@@ -69,14 +69,7 @@ func (self *MessageFileName) Parse(src string) (err error) {
 }
 
 func (self MessageFileName) ValidateIndex(ind int) {
-	if ind == self.Index {
-		return
-	}
-
-	panic(gg.Errf(
-		`index mismatch in %T: expected %v, found %v`,
-		self, ind, self.Index,
-	))
+	ValidateIndex[MessageFileName](gg.NumConv[int](self.Index), ind)
 }
 
 // TODO consider validating the message.
@@ -118,4 +111,15 @@ func MessageValidateRoleMatch(path string, act, exp ChatMessageRole) {
 			path, exp, act,
 		))
 	}
+}
+
+func ValidateIndex[Tar any, Num gg.Int](act, exp Num) {
+	if act == exp {
+		return
+	}
+
+	panic(gg.Errf(
+		`index mismatch in %v: found %v, expected %v`,
+		gg.Type[Tar](), act, exp,
+	))
 }

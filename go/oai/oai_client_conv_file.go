@@ -9,6 +9,7 @@ import (
 	"github.com/rjeczalik/notify"
 )
 
+// Short for "OpenAI client for/with conversation file".
 type OaiClientConvFile struct {
 	OaiClient
 	u.Pathed
