@@ -13,17 +13,20 @@ Examples:
 
 	make go.run run='oai_conv_dir --path=local/conv'
 	make go.run.w run='oai_conv_dir --path=local/conv --watch --init'
-	make go.run.w run='oai_conv_dir --path=local/conv --out-path=local/conv/files --watch --funcs'
+	make go.run.w run='oai_conv_dir --path=local/conv --watch --funcs --out-path=local/conv/files'
+	make go.run.w run='oai_conv_dir --path=local/conv --watch --funcs --out-path=local/conv/files --trunc --fork'
 
 Be cautious: files in target directory may be overwritten with no recovery.
 */
 type CmdOaiConvDir struct {
 	CmdOaiCommon
 	ApiKey  string
-	OutPath string `flag:"--out-path" desc:"directory path for output files"`
+	SrcPath string `flag:"--src-path" desc:"directory path for reading source files"`
+	OutPath string `flag:"--out-path" desc:"directory path for writing output files"`
 	Funcs   bool   `flag:"--funcs"    desc:"automatically run registered functions"`
 	Trunc   bool   `flag:"--trunc"    desc:"support conversation truncation in watch mode"`
 	Fork    bool   `flag:"--fork"     desc:"support conversation forking in watch mode (best with --trunc)"`
+	Dry     bool   `flag:"--dry"      desc:"dry run: no request to external API"`
 }
 
 func (self CmdOaiConvDir) RunCli() {
@@ -46,10 +49,15 @@ func (self CmdOaiConvDir) Run() {
 	cli.Path = self.Path
 	cli.Trunc = self.Trunc
 	cli.Fork = self.Fork
+	cli.Dry = self.Dry
 	cli.Verb = true
 
 	if self.Funcs {
 		cli.Functions.Add(`get_current_weather`, FunctionGetCurrentWeather{})
+
+		if gg.IsNotZero(self.SrcPath) {
+			cli.Functions.Add(`read_files`, FunctionReadFiles{Path: self.SrcPath})
+		}
 
 		if gg.IsNotZero(self.OutPath) {
 			cli.Functions.Add(`write_files`, FunctionWriteFiles{Path: self.OutPath})

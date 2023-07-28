@@ -1,7 +1,6 @@
-package main
+package u
 
 import (
-	"_/go/u"
 	"path/filepath"
 
 	"github.com/mitranim/gg"
@@ -23,5 +22,5 @@ func (self File) Validate() {
 
 func (self File) WriteTo(out string) {
 	self.Validate()
-	u.WriteFileRec(filepath.Join(out, self.Name), self.Body)
+	WriteFileRec(filepath.Join(out, self.Name), self.Body)
 }

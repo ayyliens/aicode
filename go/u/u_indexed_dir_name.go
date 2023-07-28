@@ -43,6 +43,15 @@ func IndexedDirNameFrom(path string) (out IndexedDirName) {
 	return
 }
 
+/*
+Implements parsing and encoding of directory names with optional indexes:
+
+	some_dir
+	some_dir_0000
+	some_dir_0001
+	some_dir_0002
+	...
+*/
 type IndexedDirName struct {
 	Base  string
 	Index gg.Opt[uint]

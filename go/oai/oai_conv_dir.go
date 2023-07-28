@@ -43,6 +43,18 @@ TODO consider preserving file names when reading and writing messages.
 File names would be a "secret" field not exposed in JSON. This would be
 useful for operations that involve comparing file names, comparing paths,
 etc.
+
+TODO: instead of forbidding "holes" in message indexes, use them. When
+performing a run, instead of always continuing from the last message, continue
+from the last message before the first "hole". This would allow additional
+potentially useful scenarios, such as:
+
+	* Pre-create multiple "user" message files with indexes 0, 2, 4, etc.,
+	  as a "dialogue framework" for a sequence of expected bot responses.
+
+	* Deleting a message in the middle of a conversation would be a convenient way
+	  to "retry"/"redo" that part of the conversation, especially when truncation
+	  and/or forking is not enabled.
 */
 func (self *OaiConvDir) ReadMessages() {
 	for ind, path := range self.MessageFileNames() {
@@ -102,10 +114,17 @@ func (self OaiConvDir) ValidMessages() []ChatCompletionMessage {
 	return gg.Filter(self.Messages, ChatCompletionMessage.IsValid)
 }
 
-func (self OaiConvDir) ChatCompletionRequest() ChatCompletionRequest {
+/*
+The input is the message from which we'll continue the conversation.
+Typically this is the latest message.
+*/
+func (self OaiConvDir) ChatCompletionRequest(msg ChatCompletionMessage) ChatCompletionRequest {
 	tar := self.ReqTemplate.Val
 	tar.Default()
 	tar.Messages = self.ValidMessages()
+	if msg.RequestTemplate != nil {
+		tar.Merge(*msg.RequestTemplate)
+	}
 	return tar
 }
 

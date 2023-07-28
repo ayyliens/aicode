@@ -18,7 +18,7 @@ type ChatCompletionRequest struct {
 	LogitBias        map[string]int          `json:"logit_bias,omitempty"        yaml:"logit_bias,omitempty"        toml:"logit_bias,omitempty"`
 	User             string                  `json:"user,omitempty"              yaml:"user,omitempty"              toml:"user,omitempty"`
 	Functions        []FunctionDefinition    `json:"functions,omitempty"         yaml:"functions,omitempty"         toml:"functions,omitempty"`
-	FunctionCall     *FunctionCall           `json:"function_call,omitempty"     yaml:"function_call,omitempty"     toml:"function_call,omitempty"`
+	FunctionCall     any                     `json:"function_call,omitempty"     yaml:"function_call,omitempty"     toml:"function_call,omitempty"`
 }
 
 func (self *ChatCompletionRequest) Default() {
@@ -28,4 +28,14 @@ func (self *ChatCompletionRequest) Default() {
 func (self *ChatCompletionRequest) IsValid() bool {
 	msg := gg.Last(self.Messages)
 	return msg.Role == ChatMessageRoleUser && msg.IsValid()
+}
+
+/*
+Relies on `,omitempty` in all fields. Also not entirely correct. This will fail
+to overwrite fields which are present in the source template but set to zero
+values. The information about present zero fields is lost when the source value
+is decoded from its original text format.
+*/
+func (self *ChatCompletionRequest) Merge(src ChatCompletionRequest) {
+	gg.JsonDecode(gg.JsonString(src), self)
 }

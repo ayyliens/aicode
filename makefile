@@ -4,7 +4,7 @@
 MAKEFLAGS := --silent --always-make
 MAKE_PAR := $(MAKE) -j 128
 WATCH := watchexec -r -c -d=0 -n
-GOW := gow -c -v
+GOW := gow -c -v -w=go
 VERB := $(if $(filter $(verb),true), -v,)
 FAIL := $(if $(filter $(fail),false),,-failfast)
 SHORT := $(if $(filter $(short),true), -short,)

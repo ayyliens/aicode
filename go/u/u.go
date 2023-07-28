@@ -352,6 +352,10 @@ type Verbose struct{ Verb bool }
 
 type Inited struct{ Init bool }
 
+type Named struct {
+	Name string `json:"name,omitempty"`
+}
+
 // TODO: anything built in?
 func StringPadPrefix(src string, char rune, count int) string {
 	var buf gg.Buf

@@ -23,7 +23,7 @@ func main() {
 
 		// May be helpful for generating JSON schemas for request templates.
 		// Substitute the input type as needed.
-		`print_oas_doc`: CmdPrintOasDoc[FunctionWriteFilesInput]{
+		`print_oas_doc`: CmdPrintOasDoc[FunctionWriteFilesInp]{
 			OutPath: `local/oas_doc.yaml`,
 		}.RunCli,
 	}.Get()()

@@ -28,6 +28,7 @@ type OaiClientConvDir struct {
 	Functions OaiFunctions
 	Trunc     bool // Only for watch mode.
 	Fork      bool // Only for watch mode.
+	Dry       bool
 }
 
 func (self OaiClientConvDir) Watch(ctx u.Ctx) {
@@ -93,8 +94,15 @@ func (self OaiClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
-	req := dir.ChatCompletionRequest()
+	req := dir.ChatCompletionRequest(msg)
 	dir.WriteRequestLatest(req)
+
+	if self.Dry {
+		if self.Verb {
+			log.Println(`dry run: skipping request`)
+		}
+		return
+	}
 
 	resBody := self.VerbChatCompletionBody(ctx, req)
 	dir.WriteResponseJson(resBody)

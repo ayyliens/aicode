@@ -2,6 +2,7 @@ package oai
 
 import (
 	"_/go/u"
+	"fmt"
 
 	"github.com/mitranim/gg"
 )
@@ -19,6 +20,10 @@ type ChatCompletionMessage struct {
 
 	// The following fields are used internally by us.
 	FileName string `json:"-" yaml:"-" toml:"-"`
+
+	// Should be used when the current message is the latest.
+	// Should be merged into the directory-level request template, if one exists.
+	RequestTemplate *ChatCompletionRequest `json:"-" yaml:"request_template,omitempty" toml:"request_template,omitempty"`
 }
 
 func (self ChatCompletionMessage) IsValid() bool {
@@ -34,15 +39,23 @@ func (self ChatCompletionMessage) Validate() {
 
 func (self ChatCompletionMessage) ValidateRole() {
 	if gg.IsZero(self.Role) {
-		panic(gg.Errf(`invalid %T: missing role`, self))
+		panic(gg.Errv(self.PrefixInvalid(), `: missing role`))
 	}
 }
 
 func (self ChatCompletionMessage) ValidateContent() {
 	if gg.IsZero(self.Content) &&
+		gg.IsZero(self.Name) &&
 		(self.FunctionCall == nil || !self.FunctionCall.IsValid()) {
-		panic(gg.Errf(`invalid %T: missing content and function call`, self))
+		panic(gg.Errv(self.PrefixInvalid(), `: must contain content, function call, or function response`))
 	}
+}
+
+func (self ChatCompletionMessage) PrefixInvalid() string {
+	if gg.IsNotZero(self.FileName) {
+		return fmt.Sprintf(`invalid %T %q`, self, self.FileName)
+	}
+	return fmt.Sprintf(`invalid %T`, self)
 }
 
 /*

@@ -31,10 +31,6 @@ type FileWrite struct {
 }
 
 func (self FileWrite) Run() {
-	if self.Mkdir {
-		gg.MkdirAll(filepath.Dir(self.Path))
-	}
-
 	if gg.IsTextEmpty(self.Body) {
 		switch self.Empty {
 		case ``, FileWriteEmptyCreate:
@@ -42,6 +38,7 @@ func (self FileWrite) Run() {
 
 		case FileWriteEmptyDelete:
 			RemoveFileOrDirOpt(self.Path)
+			return
 
 		case FileWriteEmptyTrunc:
 			if !gg.FileExists(self.Path) {
@@ -56,6 +53,9 @@ func (self FileWrite) Run() {
 		}
 	}
 
+	if self.Mkdir {
+		gg.MkdirAll(filepath.Dir(self.Path))
+	}
 	gg.WriteFile(self.Path, self.Body)
 }
 

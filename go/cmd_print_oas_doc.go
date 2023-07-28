@@ -29,7 +29,7 @@ func (self CmdPrintOasDoc[A]) Run() {
 
 	if gg.IsZero(self.OutPath) {
 		grepr.Println(src)
-		fmt.Println(u.JsonPretty(gg.JsonString(src)))
+		fmt.Println(u.JsonEncodePretty[string](src))
 	} else {
 		u.PolyEncodeFileOpt(self.OutPath, src)
 	}
