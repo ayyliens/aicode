@@ -9,7 +9,8 @@ import (
 )
 
 type CmdForkDir struct {
-	Path string `flag:"--path" desc:"source path"`
+	u.Pathed
+	u.Verbose
 }
 
 func (self CmdForkDir) RunCli() {
@@ -26,6 +27,9 @@ func (self CmdForkDir) Run() {
 
 	tar := u.IndexedDirForkPath(src)
 
-	log.Printf(`copying %q to %q`, src, tar)
+	if self.Verb {
+		log.Printf(`copying %q to %q`, src, tar)
+	}
+
 	u.CopyDirRec(src, tar)
 }

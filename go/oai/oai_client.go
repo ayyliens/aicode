@@ -7,7 +7,16 @@ import (
 	"github.com/mitranim/gr"
 )
 
-type OaiClient struct{ ApiKey string }
+// Used by `OaiClientConvDir` and `OaiClientConvFile`.
+type OaiClientCommon struct {
+	OaiClient
+	u.WatcherCommon
+	u.Watched
+}
+
+type OaiClient struct {
+	ApiKey string `flag:"--api-key" desc:"OpenAI API key" json:"apiKey,omitempty" yaml:"apiKey,omitempty" toml:"apiKey,omitempty"`
+}
 
 func (self OaiClient) ValidApiKey() string {
 	if gg.IsZero(self.ApiKey) {

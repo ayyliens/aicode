@@ -17,9 +17,15 @@ func main() {
 	key := os.Getenv(`OPENAI_API_KEY`)
 
 	cmd.Map{
-		`oai_conv_file`: CmdOaiConvFile{ApiKey: key}.RunCli,
-		`oai_conv_dir`:  CmdOaiConvDir{ApiKey: key}.RunCli,
-		`fork_dir`:      CmdForkDir{}.RunCli,
+		`oai_conv_file`: gg.With(func(tar *CmdOaiConvFile) {
+			tar.ApiKey = key
+		}).RunCli,
+
+		`oai_conv_dir`: gg.With(func(tar *CmdOaiConvDir) {
+			tar.ApiKey = key
+		}).RunCli,
+
+		`fork_dir`: CmdForkDir{}.RunCli,
 
 		// May be helpful for generating JSON schemas for request templates.
 		// Substitute the input type as needed.

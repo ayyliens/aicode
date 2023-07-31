@@ -10,29 +10,30 @@ import (
 )
 
 // Short for "OpenAI client for/with conversation file".
-type OaiClientConvFile struct {
-	OaiClient
-	u.Pathed
-	u.Verbose
-	u.Inited
+type OaiClientConvFile struct{ OaiClientCommon }
+
+func (self OaiClientConvFile) Run(ctx u.Ctx) {
+	if self.Watch {
+		self.RunWatch(ctx)
+	} else {
+		self.RunOnce(ctx)
+	}
 }
 
-func (self OaiClientConvFile) Watch(ctx u.Ctx) {
-	u.Watcher[OaiClientConvFile]{
-		Runner: self,
-		Path:   self.Path,
-		Verb:   self.Verb,
-		Create: true,
-		Init:   self.Init,
-	}.Run(ctx)
+func (self OaiClientConvFile) RunWatch(ctx u.Ctx) {
+	var wat u.Watcher[OaiClientConvFile]
+	wat.Runner = self
+	wat.WatcherCommon = self.WatcherCommon
+	wat.Create = true
+	wat.Run(ctx)
 }
 
 func (self OaiClientConvFile) OnFsEvent(ctx u.Ctx, _ notify.EventInfo) {
 	defer gg.RecWith(u.LogErr)
-	self.Run(ctx)
+	self.RunOnce(ctx)
 }
 
-func (self OaiClientConvFile) Run(ctx u.Ctx) {
+func (self OaiClientConvFile) RunOnce(ctx u.Ctx) {
 	src := strings.TrimSpace(gg.ReadFile[string](self.Path))
 
 	var req ChatCompletionRequest

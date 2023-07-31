@@ -11,13 +11,10 @@ import (
 /*
 Example usage:
 
-	make go.run run='oai_conv_file --path local/conv.json'
-	make go.run.w run='oai_conv_file --path local/conv.json --watch --init'
+	make go.run   run='oai_conv_file --verb --path local/conv.json'
+	make go.run.w run='oai_conv_file --verb --path local/conv.json --watch --init'
 */
-type CmdOaiConvFile struct {
-	CmdOaiCommon
-	ApiKey string
-}
+type CmdOaiConvFile struct{ oai.OaiClientConvFile }
 
 func (self CmdOaiConvFile) RunCli() {
 	gg.FlagParse(cmd.Args(), &self)
@@ -25,21 +22,5 @@ func (self CmdOaiConvFile) RunCli() {
 }
 
 func (self CmdOaiConvFile) Run() {
-	if gg.IsZero(self.Path) {
-		panic(gg.Errf(`missing path: "--path"`))
-	}
-
-	ctx := context.Background()
-
-	var cli oai.OaiClientConvFile
-	cli.ApiKey = self.ApiKey
-	cli.Path = self.Path
-	cli.Verb = true
-
-	if self.Watch {
-		cli.Init = self.Init
-		cli.Watch(ctx)
-	} else {
-		cli.Run(ctx)
-	}
+	self.OaiClientConvFile.Run(context.Background())
 }

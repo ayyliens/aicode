@@ -10,6 +10,13 @@ import (
 	"github.com/rjeczalik/notify"
 )
 
+type WatcherCommon struct {
+	Pathed
+	Verbose
+	Inited
+	Ignored
+}
+
 type FsEventer interface {
 	OnFsEvent(Ctx, notify.EventInfo)
 }
@@ -21,18 +28,18 @@ events are generated almost simultaneously, for example when multiple files are
 saved at once. Killing and restarting prevents inconsistent states.
 */
 type Watcher[A FsEventer] struct {
+	WatcherCommon
 	Runner A
-	Path   string
 	Filter notify.Event  // Allowed event types, default all.
 	Delay  time.Duration // Time window for ignoring subsequent FS events.
 	IsDir  bool          // `true` = dir, `false` = file.
 	Create bool          // Auto-create if missing.
-	Verb   bool          // Verbose logging.
-	Init   bool          // Run once before watching.
 	Clear  bool          // Clear terminal on FS event.
 }
 
 func (self Watcher[_]) Run(ctx Ctx) {
+	self.NormIgnore()
+
 	if self.Init {
 		self.Runner.OnFsEvent(ctx, nil)
 	}
@@ -65,6 +72,10 @@ func (self Watcher[_]) Run(ctx Ctx) {
 			return
 
 		case eve := <-events:
+			if self.Skip(eve) {
+				log.Println(`skipping file event:`, eve)
+				continue
+			}
 			if self.Clear {
 				gg.TermClearHard()
 			}
@@ -96,6 +107,26 @@ func (self Watcher[_]) Pattern() string {
 		return filepath.Join(self.Path, `...`)
 	}
 	return self.Path
+}
+
+/*
+Normalizes relative paths to absolute for compatibility with
+`notify.EventInfo.Path` which returns absolute paths.
+*/
+func (self *Watcher[_]) NormIgnore() {
+	for ind, val := range self.Ignore {
+		self.Ignore[ind] = gg.Try1(filepath.Abs(val))
+	}
+}
+
+func (self Watcher[_]) Skip(eve notify.EventInfo) bool {
+	return eve == nil || self.SkipPath(eve.Path())
+}
+
+func (self Watcher[_]) SkipPath(path string) bool {
+	return gg.Some(self.Ignore, func(val string) bool {
+		return IsPathAncestorOf(val, path)
+	})
 }
 
 func (self Watcher[_]) wait(ctx Ctx) {

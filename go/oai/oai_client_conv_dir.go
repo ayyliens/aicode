@@ -17,39 +17,42 @@ Short for "OpenAI client for/with conversation directory".
 TODO:
 
 	* Support simultaneously watching and operating on multiple directories.
-	  The user should watch an "ancestor" dir, and we should operate on all
-	  nested directories that appear to be "conv" dirs.
+		The user should watch an "ancestor" dir, and we should operate on all
+		nested directories that appear to be "conv" dirs.
 */
 type OaiClientConvDir struct {
-	OaiClient
-	u.Pathed
-	u.Verbose
-	u.Inited
-	Functions OaiFunctions
-	Trunc     bool // Only for watch mode.
-	Fork      bool // Only for watch mode.
-	Dry       bool
+	OaiClientCommon
+	Trunc     bool         `flag:"--trunc" desc:"support conversation truncation in watch mode"                  json:"trunc,omitempty" yaml:"trunc,omitempty" toml:"trunc,omitempty"`
+	Fork      bool         `flag:"--fork"  desc:"support conversation forking in watch mode (best with --trunc)" json:"fork,omitempty"  yaml:"fork,omitempty"  toml:"fork,omitempty"`
+	Dry       bool         `flag:"--dry"   desc:"dry run: no request to external API"                            json:"dry,omitempty"   yaml:"dry,omitempty"   toml:"dry,omitempty"`
+	Functions OaiFunctions `json:"-" yaml:"-" toml:"-"`
 }
 
-func (self OaiClientConvDir) Watch(ctx u.Ctx) {
+func (self OaiClientConvDir) Run(ctx u.Ctx) {
+	if self.Watch {
+		self.RunWatch(ctx)
+	} else {
+		self.RunOnce(ctx)
+	}
+}
+
+func (self OaiClientConvDir) RunWatch(ctx u.Ctx) {
 	self.InitMessage()
 	self.InitBackupOpt()
 
-	u.Watcher[OaiClientConvDir]{
-		Runner: self,
-		Path:   self.Path,
-		Verb:   self.Verb,
-		IsDir:  true,
-		Create: true,
-		Init:   self.Init,
-	}.Run(ctx)
+	var wat u.Watcher[OaiClientConvDir]
+	wat.Runner = self
+	wat.WatcherCommon = self.WatcherCommon
+	wat.IsDir = true
+	wat.Create = true
+	wat.Run(ctx)
 }
 
 func (self OaiClientConvDir) InitMessage() {
 	gg.Ptr(self.OaiConvDirInit()).InitMessage()
 }
 
-func (self OaiClientConvDir) Run(ctx u.Ctx) { self.RunOnFsEvent(ctx, nil) }
+func (self OaiClientConvDir) RunOnce(ctx u.Ctx) { self.RunOnFsEvent(ctx, nil) }
 
 func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	defer gg.RecWith(u.LogErr)
