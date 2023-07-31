@@ -8,7 +8,7 @@ import (
 )
 
 // Short for "OpenAI conversation directory".
-type OaiConvDir struct {
+type ConvDir struct {
 	u.Pathed
 	Messages    []ChatCompletionMessage
 	ReqTemplate gg.Zop[ChatCompletionRequest]
@@ -16,25 +16,25 @@ type OaiConvDir struct {
 	ResLatest   gg.Zop[ChatCompletionResponse]
 }
 
-func (self *OaiConvDir) Read() {
+func (self *ConvDir) Read() {
 	self.ReadRequestTemplate()
 	self.ReadRequestLatest()
 	self.ReadResponseLatest()
 	self.ReadMessages()
 }
 
-func (self *OaiConvDir) ReadRequestTemplate() {
+func (self *ConvDir) ReadRequestTemplate() {
 	tar := &self.ReqTemplate.Val
 	u.JsonDecodeFileOpt(self.RequestTemplatePath(`.json`), tar)
 	u.YamlDecodeFileOpt(self.RequestTemplatePath(`.yaml`), tar)
 	u.TomlDecodeFileOpt(self.RequestTemplatePath(`.toml`), tar)
 }
 
-func (self *OaiConvDir) ReadRequestLatest() {
+func (self *ConvDir) ReadRequestLatest() {
 	u.PolyDecodeFileOpt(self.RequestLatestPathJson(), &self.ReqLatest.Val)
 }
 
-func (self *OaiConvDir) ReadResponseLatest() {
+func (self *ConvDir) ReadResponseLatest() {
 	u.PolyDecodeFileOpt(self.ResponseLatestPath(), &self.ResLatest.Val)
 }
 
@@ -56,20 +56,20 @@ potentially useful scenarios, such as:
 	  to "retry"/"redo" that part of the conversation, especially when truncation
 	  and/or forking is not enabled.
 */
-func (self *OaiConvDir) ReadMessages() {
+func (self *ConvDir) ReadMessages() {
 	for ind, path := range self.MessageFileNames() {
 		self.ReadMessageFile(path).ValidateIndex(ind)
 	}
 	self.ValidateMessages()
 }
 
-func (self *OaiConvDir) ReadMessageFile(name string) (out MessageFileName) {
+func (self *ConvDir) ReadMessageFile(name string) (out MessageFileName) {
 	gg.Try(out.Parse(name))
 	gg.Append(&self.Messages, out.ChatCompletionMessage(self.PathJoin(name)))
 	return
 }
 
-func (self OaiConvDir) MessageFileNames() []string {
+func (self ConvDir) MessageFileNames() []string {
 	return gg.Filter(u.ReadDirFileNames(self.Path), IsMessageFileNameLax)
 }
 
@@ -77,40 +77,40 @@ func (self OaiConvDir) MessageFileNames() []string {
 Note: the last message is meant to be a placeholder for the user, and is allowed
 to have empty content, so we don't validate it.
 */
-func (self OaiConvDir) ValidateMessages() {
+func (self ConvDir) ValidateMessages() {
 	for _, msg := range gg.Init(self.Messages) {
 		msg.Validate()
 	}
 }
 
-func (self OaiConvDir) RequestTemplatePath(ext string) string {
+func (self ConvDir) RequestTemplatePath(ext string) string {
 	return self.PathJoin(`request_template` + ext)
 }
 
-func (self OaiConvDir) RequestLatestPathJson() string {
+func (self ConvDir) RequestLatestPathJson() string {
 	return self.PathJoin(`request_latest.json`)
 }
 
 // Can change to any extension supported by `u.PolyEncodeFileOpt`.
-func (self OaiConvDir) ResponseLatestPath() string {
+func (self ConvDir) ResponseLatestPath() string {
 	return self.PathJoin(`response_latest.json`)
 }
 
-func (self OaiConvDir) ResponseLatestPathJson() string {
+func (self ConvDir) ResponseLatestPathJson() string {
 	return self.PathJoin(`response_latest.json`)
 }
 
-func (self OaiConvDir) ErrorPath() string { return self.PathJoin(`error.txt`) }
+func (self ConvDir) ErrorPath() string { return self.PathJoin(`error.txt`) }
 
-func (self OaiConvDir) ForkPath() string { return u.IndexedDirForkPath(self.Path) }
+func (self ConvDir) ForkPath() string { return u.IndexedDirForkPath(self.Path) }
 
-func (self *OaiConvDir) InitMessage() {
+func (self *ConvDir) InitMessage() {
 	if gg.IsEmpty(self.Messages) {
 		self.WriteNextMessagePlaceholder()
 	}
 }
 
-func (self OaiConvDir) ValidMessages() []ChatCompletionMessage {
+func (self ConvDir) ValidMessages() []ChatCompletionMessage {
 	return gg.Filter(self.Messages, ChatCompletionMessage.IsValid)
 }
 
@@ -118,7 +118,7 @@ func (self OaiConvDir) ValidMessages() []ChatCompletionMessage {
 The input is the message from which we'll continue the conversation.
 Typically this is the latest message.
 */
-func (self OaiConvDir) ChatCompletionRequest(msg ChatCompletionMessage) ChatCompletionRequest {
+func (self ConvDir) ChatCompletionRequest(msg ChatCompletionMessage) ChatCompletionRequest {
 	tar := self.ReqTemplate.Val
 	tar.Default()
 	tar.Messages = self.ValidMessages()
@@ -128,18 +128,18 @@ func (self OaiConvDir) ChatCompletionRequest(msg ChatCompletionMessage) ChatComp
 	return tar
 }
 
-func (self OaiConvDir) WriteRequestLatest(src ChatCompletionRequest) {
+func (self ConvDir) WriteRequestLatest(src ChatCompletionRequest) {
 	u.JsonEncodeFile(self.RequestLatestPathJson(), src)
 }
 
-func (self *OaiConvDir) WriteResponseJson(src []byte) {
+func (self *ConvDir) WriteResponseJson(src []byte) {
 	u.WriteFile(self.ResponseLatestPathJson(), u.JsonPretty(src))
 }
 
-func (self *OaiConvDir) WriteResponseEncoded(res ChatCompletionResponse) {
+func (self *ConvDir) WriteResponseEncoded(res ChatCompletionResponse) {
 	out := self.ResponseLatestPath()
 
-	// Assumes that `OaiConvDir.WriteResponseJson` is called earlier.
+	// Assumes that `ConvDir.WriteResponseJson` is called earlier.
 	// We don't want to overwrite original response JSON with JSON
 	// generated by decoding and then encoding again. The original
 	// has more information, such as fields not listed in our types.
@@ -149,18 +149,18 @@ func (self *OaiConvDir) WriteResponseEncoded(res ChatCompletionResponse) {
 }
 
 // Intended for error paths.
-func (self *OaiConvDir) WriteNextMessagePlaceholderOrSkip() {
+func (self *ConvDir) WriteNextMessagePlaceholderOrSkip() {
 	defer gg.Skip()
 	self.WriteNextMessagePlaceholder()
 }
 
-func (self *OaiConvDir) WriteNextMessagePlaceholder() {
+func (self *ConvDir) WriteNextMessagePlaceholder() {
 	var tar ChatCompletionMessage
 	tar.Role = ChatMessageRoleUser
 	self.WriteNextMessage(tar)
 }
 
-func (self *OaiConvDir) WriteNextMessageFunctionResponse(name FunctionName, body string) {
+func (self *ConvDir) WriteNextMessageFunctionResponse(name FunctionName, body string) {
 	var tar ChatCompletionMessage
 	tar.Role = ChatMessageRoleFunction
 	tar.Name = name
@@ -168,11 +168,11 @@ func (self *OaiConvDir) WriteNextMessageFunctionResponse(name FunctionName, body
 	self.WriteNextMessage(tar)
 }
 
-func (self *OaiConvDir) WriteNextMessageFunctionResponsePlaceholder(src FunctionCall) {
+func (self *ConvDir) WriteNextMessageFunctionResponsePlaceholder(src FunctionCall) {
 	self.WriteNextMessageFunctionResponse(src.Name, ``)
 }
 
-func (self *OaiConvDir) WriteNextMessage(src ChatCompletionMessage) {
+func (self *ConvDir) WriteNextMessage(src ChatCompletionMessage) {
 	ext, body := src.ExtBody()
 
 	var tar MessageFileName
@@ -187,9 +187,9 @@ func (self *OaiConvDir) WriteNextMessage(src ChatCompletionMessage) {
 	gg.Append(&self.Messages, src)
 }
 
-func (self OaiConvDir) NextIndex() int { return len(self.Messages) }
+func (self ConvDir) NextIndex() int { return len(self.Messages) }
 
-func (self OaiConvDir) LogWriteErr(err error) {
+func (self ConvDir) LogWriteErr(err error) {
 	if u.IsErrContextCancel(err) {
 		return
 	}
@@ -199,7 +199,7 @@ func (self OaiConvDir) LogWriteErr(err error) {
 	self.WriteErr(err)
 }
 
-func (self OaiConvDir) WriteErr(err error) {
+func (self ConvDir) WriteErr(err error) {
 	u.FileWrite{
 		Path:  self.ErrorPath(),
 		Body:  gg.ToBytes(u.FormatVerbose(err)),
@@ -207,14 +207,14 @@ func (self OaiConvDir) WriteErr(err error) {
 	}.Run()
 }
 
-func (self OaiConvDir) HasIntermediateMessage(name string) bool {
+func (self ConvDir) HasIntermediateMessage(name string) bool {
 	return gg.IsNotZero(name) &&
 		gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessage) bool {
 			return val.FileName == name
 		})
 }
 
-func (self *OaiConvDir) TruncMessagesAndFilesAfterMessageFileName(
+func (self *ConvDir) TruncMessagesAndFilesAfterMessageFileName(
 	name string,
 	verb u.Verbose,
 ) {

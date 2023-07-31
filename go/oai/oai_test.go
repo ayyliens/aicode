@@ -28,7 +28,7 @@ func Test_chat_completion(t *testing.T) {
 		Content: `Summarize the conversation so far.`,
 	})
 
-	var cli oai.OaiClient
+	var cli oai.Client
 	ctx := context.Background()
 	res := cli.ChatCompletion(ctx, req)
 	grepr.Prn(`res:`, res)
@@ -39,17 +39,17 @@ func Test_conv_conversion(t *testing.T) {
 	defer gtest.Catch(t)
 
 	src := gg.ReadFile[string](`testdata/conv_1.json`)
-	mid := oai.OaiSiteMsgs(u.ParseJsonLines[oai.OaiSiteMsg](src))
+	mid := oai.SiteMsgs(u.ParseJsonLines[oai.SiteMsg](src))
 	tar := mid.ChatCompletionMessages()
 
 	u.WriteJsonLines(`testdata/conv_1_to_api_compatible.json`, tar)
 }
 
-func Test_OaiSiteMsgs_ChatCompletionMessages(t *testing.T) {
+func Test_SiteMsgs_ChatCompletionMessages(t *testing.T) {
 	defer gtest.Catch(t)
 
 	gtest.Equal(
-		testOaiSiteMsgJsonLines().ChatCompletionMessages(),
+		testSiteMsgJsonLines().ChatCompletionMessages(),
 		[]oai.ChatCompletionMessage{
 			{Role: `user`, Content: `provide response 0`},
 			{Role: `assistant`, Content: `response 0 provided`},
@@ -59,17 +59,17 @@ func Test_OaiSiteMsgs_ChatCompletionMessages(t *testing.T) {
 	)
 }
 
-func testOaiSiteMsgJsonLines() oai.OaiSiteMsgs {
-	return u.ParseJsonLines[oai.OaiSiteMsg](
+func testSiteMsgJsonLines() oai.SiteMsgs {
+	return u.ParseJsonLines[oai.SiteMsg](
 		gg.ReadFile[string](`testdata/site_msgs_0.json`),
 	)
 }
 
-func Test_OaiSiteMsgs_ConcatText(t *testing.T) {
+func Test_SiteMsgs_ConcatText(t *testing.T) {
 	defer gtest.Catch(t)
 
 	gtest.Eq(
-		testOaiSiteMsgJsonLines().ConcatText(),
+		testSiteMsgJsonLines().ConcatText(),
 		strings.TrimSpace(`
 provide response 0
 

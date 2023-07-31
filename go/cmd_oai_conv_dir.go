@@ -19,7 +19,7 @@ Examples:
 Be cautious: files in target directory may be overwritten with no recovery.
 */
 type CmdOaiConvDir struct {
-	oai.OaiClientConvDir
+	oai.ClientConvDir
 	SrcPath string `flag:"--src-path" desc:"directory path for reading source files"`
 	OutPath string `flag:"--out-path" desc:"directory path for writing output files"`
 	Funcs   bool   `flag:"--funcs"    desc:"automatically run supported functions"`
@@ -52,5 +52,5 @@ func (self CmdOaiConvDir) Run() {
 		self.OutPath,
 	))
 
-	self.OaiClientConvDir.Run(context.Background())
+	self.ClientConvDir.Run(context.Background())
 }

@@ -73,7 +73,7 @@ func (self Watcher[_]) Run(ctx Ctx) {
 
 		case eve := <-events:
 			if self.Skip(eve) {
-				log.Println(`skipping file event:`, eve)
+				log.Println(`ignoring file event:`, eve)
 				continue
 			}
 			if self.Clear {

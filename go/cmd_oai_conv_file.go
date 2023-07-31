@@ -14,7 +14,7 @@ Example usage:
 	make go.run   run='oai_conv_file --verb --path local/conv.json'
 	make go.run.w run='oai_conv_file --verb --path local/conv.json --watch --init'
 */
-type CmdOaiConvFile struct{ oai.OaiClientConvFile }
+type CmdOaiConvFile struct{ oai.ClientConvFile }
 
 func (self CmdOaiConvFile) RunCli() {
 	gg.FlagParse(cmd.Args(), &self)
@@ -22,5 +22,5 @@ func (self CmdOaiConvFile) RunCli() {
 }
 
 func (self CmdOaiConvFile) Run() {
-	self.OaiClientConvFile.Run(context.Background())
+	self.ClientConvFile.Run(context.Background())
 }

@@ -4,17 +4,17 @@ import (
 	"github.com/mitranim/gg"
 )
 
-type OaiFunctions gg.OrdMap[FunctionName, OaiFunction]
+type Functions gg.OrdMap[FunctionName, OaiFunction]
 
-func (self OaiFunctions) Has(key FunctionName) bool {
+func (self Functions) Has(key FunctionName) bool {
 	return self.OrdMap().Has(key)
 }
 
-func (self OaiFunctions) Get(key FunctionName) OaiFunction {
+func (self Functions) Get(key FunctionName) OaiFunction {
 	return self.OrdMap().Get(key)
 }
 
-func (self *OaiFunctions) Add(key FunctionName, val OaiFunction) {
+func (self *Functions) Add(key FunctionName, val OaiFunction) {
 	if self.Has(key) {
 		panic(gg.Errf(
 			`redundant registration of function %q of type %T`,
@@ -24,13 +24,13 @@ func (self *OaiFunctions) Add(key FunctionName, val OaiFunction) {
 	self.Set(key, val)
 }
 
-func (self *OaiFunctions) Set(key FunctionName, val OaiFunction) {
+func (self *Functions) Set(key FunctionName, val OaiFunction) {
 	if val == nil {
 		panic(gg.Errf(`unexpected nil function %q`, key))
 	}
 	self.OrdMap().Set(key, val)
 }
 
-func (self *OaiFunctions) OrdMap() *gg.OrdMap[FunctionName, OaiFunction] {
+func (self *Functions) OrdMap() *gg.OrdMap[FunctionName, OaiFunction] {
 	return (*gg.OrdMap[FunctionName, OaiFunction])(self)
 }

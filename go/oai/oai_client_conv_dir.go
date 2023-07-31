@@ -20,15 +20,15 @@ TODO:
 		The user should watch an "ancestor" dir, and we should operate on all
 		nested directories that appear to be "conv" dirs.
 */
-type OaiClientConvDir struct {
-	OaiClientCommon
-	Trunc     bool         `flag:"--trunc" desc:"support conversation truncation in watch mode"                  json:"trunc,omitempty" yaml:"trunc,omitempty" toml:"trunc,omitempty"`
-	Fork      bool         `flag:"--fork"  desc:"support conversation forking in watch mode (best with --trunc)" json:"fork,omitempty"  yaml:"fork,omitempty"  toml:"fork,omitempty"`
-	Dry       bool         `flag:"--dry"   desc:"dry run: no request to external API"                            json:"dry,omitempty"   yaml:"dry,omitempty"   toml:"dry,omitempty"`
-	Functions OaiFunctions `json:"-" yaml:"-" toml:"-"`
+type ClientConvDir struct {
+	ClientCommon
+	Trunc     bool      `flag:"--trunc" desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty" yaml:"trunc,omitempty" toml:"trunc,omitempty"`
+	Fork      bool      `flag:"--fork"  desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"  yaml:"fork,omitempty"  toml:"fork,omitempty"`
+	Dry       bool      `flag:"--dry"   desc:"dry run: no request to external API"                              json:"dry,omitempty"   yaml:"dry,omitempty"   toml:"dry,omitempty"`
+	Functions Functions `json:"-" yaml:"-" toml:"-"`
 }
 
-func (self OaiClientConvDir) Run(ctx u.Ctx) {
+func (self ClientConvDir) Run(ctx u.Ctx) {
 	if self.Watch {
 		self.RunWatch(ctx)
 	} else {
@@ -36,11 +36,11 @@ func (self OaiClientConvDir) Run(ctx u.Ctx) {
 	}
 }
 
-func (self OaiClientConvDir) RunWatch(ctx u.Ctx) {
+func (self ClientConvDir) RunWatch(ctx u.Ctx) {
 	self.InitMessage()
 	self.InitBackupOpt()
 
-	var wat u.Watcher[OaiClientConvDir]
+	var wat u.Watcher[ClientConvDir]
 	wat.Runner = self
 	wat.WatcherCommon = self.WatcherCommon
 	wat.IsDir = true
@@ -48,18 +48,18 @@ func (self OaiClientConvDir) RunWatch(ctx u.Ctx) {
 	wat.Run(ctx)
 }
 
-func (self OaiClientConvDir) InitMessage() {
+func (self ClientConvDir) InitMessage() {
 	gg.Ptr(self.OaiConvDirInit()).InitMessage()
 }
 
-func (self OaiClientConvDir) RunOnce(ctx u.Ctx) { self.RunOnFsEvent(ctx, nil) }
+func (self ClientConvDir) RunOnce(ctx u.Ctx) { self.RunOnFsEvent(ctx, nil) }
 
-func (self OaiClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
+func (self ClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	defer gg.RecWith(u.LogErr)
 	self.RunOnFsEvent(ctx, eve)
 }
 
-func (self OaiClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
+func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	dir := self.OaiConvDirInit()
 	defer gg.Finally(dir.LogWriteErr)
 
@@ -131,7 +131,7 @@ func (self OaiClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	self.RunFunction(dir, call)
 }
 
-func (self OaiClientConvDir) RunFunction(dir OaiConvDir, call FunctionCall) {
+func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 	/**
 	If we fail to process the function call, then in addition to logging the
 	error, which is done by the caller outside of this function, we also create
@@ -152,7 +152,7 @@ func (self OaiClientConvDir) RunFunction(dir OaiConvDir, call FunctionCall) {
 	}
 }
 
-func (self OaiClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName, arg string) (_ string) {
+func (self ClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName, arg string) (_ string) {
 	if fun == nil {
 		if self.Verb {
 			log.Printf(`found no registered function %q, returning empty function response`, name)
@@ -166,20 +166,20 @@ func (self OaiClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName
 	return fun.OaiCall(arg)
 }
 
-func (self OaiClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest) []byte {
+func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest) []byte {
 	if self.Verb {
 		defer gg.LogTimeNow(`chat completion request`).LogStart().LogEnd()
 	}
 	return self.ChatCompletionBody(ctx, req)
 }
 
-func (self *OaiClientConvDir) OaiConvDirInit() (out OaiConvDir) {
+func (self *ClientConvDir) OaiConvDirInit() (out ConvDir) {
 	out.Path = self.Path
 	out.Read()
 	return
 }
 
-func (self OaiClientConvDir) BackupDirPath() string {
+func (self ClientConvDir) BackupDirPath() string {
 	/**
 	See `Test_filepath_Join_appending_absolute_path`. On Unix, appending
 	an "absolute" path to another path works fine, treating the absolute path
@@ -188,13 +188,13 @@ func (self OaiClientConvDir) BackupDirPath() string {
 	return filepath.Join(os.TempDir(), TempDirName, gg.Try1(filepath.Abs(self.Path)))
 }
 
-func (self OaiClientConvDir) InitBackupOpt() {
+func (self ClientConvDir) InitBackupOpt() {
 	if self.Fork {
 		self.InitBackup()
 	}
 }
 
-func (self OaiClientConvDir) InitBackup() {
+func (self ClientConvDir) InitBackup() {
 	src := self.Path
 	tar := self.BackupDirPath()
 
@@ -206,7 +206,7 @@ func (self OaiClientConvDir) InitBackup() {
 	u.CopyDirRec(src, tar)
 }
 
-func (self OaiClientConvDir) ForkFromBackup(tar string) {
+func (self ClientConvDir) ForkFromBackup(tar string) {
 	if self.Verb {
 		log.Printf(`forking directory %q to %q`, self.Path, tar)
 	}

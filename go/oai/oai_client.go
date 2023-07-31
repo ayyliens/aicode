@@ -7,45 +7,45 @@ import (
 	"github.com/mitranim/gr"
 )
 
-// Used by `OaiClientConvDir` and `OaiClientConvFile`.
-type OaiClientCommon struct {
-	OaiClient
+// Used by `ClientConvDir` and `ClientConvFile`.
+type ClientCommon struct {
+	Client
 	u.WatcherCommon
 	u.Watched
 }
 
-type OaiClient struct {
+type Client struct {
 	ApiKey string `flag:"--api-key" desc:"OpenAI API key" json:"apiKey,omitempty" yaml:"apiKey,omitempty" toml:"apiKey,omitempty"`
 }
 
-func (self OaiClient) ValidApiKey() string {
+func (self Client) ValidApiKey() string {
 	if gg.IsZero(self.ApiKey) {
 		panic(gg.Errf(`missing API key in %T`, self))
 	}
 	return self.ApiKey
 }
 
-func (self OaiClient) Req() *gr.Req {
+func (self Client) Req() *gr.Req {
 	return new(gr.Req).
 		To(`https://api.openai.com/v1`).
 		HeadSet(`Authorization`, `Bearer `+self.ValidApiKey()).
 		HeadSet(`Accept`, gr.TypeJsonUtf8)
 }
 
-func (self OaiClient) ChatCompletionReq() *gr.Req {
+func (self Client) ChatCompletionReq() *gr.Req {
 	return self.Req().Join(`/chat/completions`).Post()
 }
 
 // Caller must close.
-func (self OaiClient) ChatCompletionRes(ctx u.Ctx, src ChatCompletionRequest) *gr.Res {
+func (self Client) ChatCompletionRes(ctx u.Ctx, src ChatCompletionRequest) *gr.Res {
 	return self.ChatCompletionReq().Ctx(ctx).Json(src).Res().Ok()
 }
 
-func (self OaiClient) ChatCompletionBody(ctx u.Ctx, src ChatCompletionRequest) []byte {
+func (self Client) ChatCompletionBody(ctx u.Ctx, src ChatCompletionRequest) []byte {
 	return self.ChatCompletionRes(ctx, src).ReadBytes()
 }
 
-func (self OaiClient) ChatCompletion(ctx u.Ctx, src ChatCompletionRequest) (out ChatCompletionResponse) {
+func (self Client) ChatCompletion(ctx u.Ctx, src ChatCompletionRequest) (out ChatCompletionResponse) {
 	self.ChatCompletionRes(ctx, src).Json(&out)
 	return
 }

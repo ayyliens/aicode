@@ -8,16 +8,16 @@ import (
 )
 
 // Represents the format used internally by the chat UI on the OpenAI website.
-type OaiSiteMsgs []OaiSiteMsg
+type SiteMsgs []SiteMsg
 
-func (self *OaiSiteMsgs) FromFile(file *os.File) {
+func (self *SiteMsgs) FromFile(file *os.File) {
 	u.DecodeJsonLinesInto(file, self)
 }
 
-func (self OaiSiteMsgs) ChatCompletionMessages() []ChatCompletionMessage {
-	return gg.MapCompact(self, OaiSiteMsg.ChatCompletionMessage)
+func (self SiteMsgs) ChatCompletionMessages() []ChatCompletionMessage {
+	return gg.MapCompact(self, SiteMsg.ChatCompletionMessage)
 }
 
-func (self OaiSiteMsgs) ConcatText() string {
-	return u.JoinLines2Opt(gg.Map(self, OaiSiteMsg.GetText)...)
+func (self SiteMsgs) ConcatText() string {
+	return u.JoinLines2Opt(gg.Map(self, SiteMsg.GetText)...)
 }

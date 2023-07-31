@@ -3,14 +3,14 @@ package oai
 import "github.com/mitranim/gg"
 
 // Represents the format used internally by the chat UI on the OpenAI website.
-type OaiSiteMsg struct {
-	Author  OaiSiteMsgAuthor  `json:"author" db:"author"`
-	Content OaiSiteMsgContent `json:"content" db:"content"`
+type SiteMsg struct {
+	Author  SiteMsgAuthor  `json:"author" db:"author"`
+	Content SiteMsgContent `json:"content" db:"content"`
 }
 
-func (self OaiSiteMsg) GetText() string { return self.Content.GetText() }
+func (self SiteMsg) GetText() string { return self.Content.GetText() }
 
-func (self OaiSiteMsg) ChatCompletionMessage() (out ChatCompletionMessage) {
+func (self SiteMsg) ChatCompletionMessage() (out ChatCompletionMessage) {
 	src := self.GetText()
 	if gg.IsZero(src) {
 		return
@@ -21,15 +21,15 @@ func (self OaiSiteMsg) ChatCompletionMessage() (out ChatCompletionMessage) {
 	return
 }
 
-type OaiSiteMsgAuthor struct {
+type SiteMsgAuthor struct {
 	Role ChatMessageRole `json:"role" db:"role"`
 }
 
-type OaiSiteMsgContent struct {
+type SiteMsgContent struct {
 	ContentType string   `json:"content_type" db:"content_type"`
 	Parts       []string `json:"parts" db:"parts"`
 }
 
-func (self OaiSiteMsgContent) GetText() string {
+func (self SiteMsgContent) GetText() string {
 	return gg.JoinSpacedOpt(self.Parts...)
 }
