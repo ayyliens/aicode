@@ -25,6 +25,9 @@ func (self FunctionReadFiles) OaiCall(src string) (_ string) {
 		gg.Append(&tar.Files, file)
 	}
 
+	if gg.IsZero(tar) {
+		return
+	}
 	return gg.JsonString(tar)
 }
 

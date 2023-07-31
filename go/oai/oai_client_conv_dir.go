@@ -142,10 +142,16 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 	*/
 	defer u.Fail0(dir.WriteNextMessagePlaceholderOrSkip)
 
-	dir.WriteNextMessageFunctionResponse(
-		call.Name,
-		self.FunctionResponse(self.Functions.Get(call.Name), call.Name, call.Arguments),
-	)
+	out := self.FunctionResponse(self.Functions.Get(call.Name), call.Name, call.Arguments)
+
+	if gg.IsZero(out) {
+		if self.Verb {
+			log.Printf(`skipping empty function response to avoid confusing the bot`)
+		}
+		return
+	}
+
+	dir.WriteNextMessageFunctionResponse(call.Name, out)
 
 	if self.Verb {
 		log.Printf(`wrote pending function response; when running in watch mode, review and re-save the file to trigger the next request`)
@@ -155,7 +161,7 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 func (self ClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName, arg string) (_ string) {
 	if fun == nil {
 		if self.Verb {
-			log.Printf(`found no registered function %q, returning empty function response`, name)
+			log.Printf(`found no registered function %q, function response is empty`, name)
 		}
 		return
 	}

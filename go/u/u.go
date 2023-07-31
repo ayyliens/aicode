@@ -94,7 +94,7 @@ Stands for "copy directory recursive". Caution: parameter order is inconsistent
 with built-in `copy` and `io.Copy`.
 
 TODO: validate that the source and destination directories are not ancestor or
-descendant of each other.
+descendant of each other (use `u.IsPathAncestorOf`).
 */
 func CopyDirRec(src, out string) {
 	var exists bool
