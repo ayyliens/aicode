@@ -27,6 +27,23 @@ default:
 		$(CLEAR_LONG) \
 	'
 
+example.xln:
+	$(eval TAR := "local/conv_xln")
+	cp -r local_example/conv_example_xln $(TAR)
+	$(MAKE) go.run.w run=' \
+		oai_conv_dir \
+		--verb \
+		--path=$(TAR) \
+		--funcs \
+		--src-path=$(TAR)/src_files \
+		--out-path=$(TAR)/out_files \
+		--watch \
+		--trunc \
+		--fork \
+		--init \
+		$(CLEAR_LONG) \
+	'
+
 go.test.w:
 	$(GOW) test $(GO_PKG) $(GO_TEST_FLAGS) $(GO_TEST_PATTERNS)
 
