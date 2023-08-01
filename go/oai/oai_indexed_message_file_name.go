@@ -57,6 +57,14 @@ func (self IndexedMessageFileName) String() (_ string) {
 	return self.IndexString() + `_msg_` + string(self.Role) + self.Ext
 }
 
+func (self IndexedMessageFileName) ValidString() string {
+	out := self.String()
+	if gg.IsZero(out) {
+		panic(gg.Errf(`unable to string-encode invalid %T`, self))
+	}
+	return out
+}
+
 func (self IndexedMessageFileName) IndexString() string {
 	return u.NumToPaddedString(self.Index)
 }

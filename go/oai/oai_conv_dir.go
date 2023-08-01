@@ -136,6 +136,7 @@ func (self *ConvDir) EvalMessages(funs Functions) {
 		next.Content = funs.Response(next.Name, next.Arguments.String(), self.Verbose)
 	}
 
+	next.Validate()
 	self.WriteNextMessage(next)
 }
 
@@ -210,7 +211,7 @@ func (self *ConvDir) WriteNextMessage(src ChatCompletionMessageExt) {
 
 	src.FileName = tar
 
-	u.WriteFileRec(self.PathJoin(tar.String()), body)
+	u.WriteFileRec(self.PathJoin(tar.ValidString()), body)
 	gg.Append(&self.Messages, src)
 }
 

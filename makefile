@@ -29,6 +29,7 @@ default:
 
 example.xln:
 	$(eval TAR := "local/conv_xln")
+	rm -rf $(TAR)
 	cp -r local_example/conv_example_xln $(TAR)
 	$(MAKE) go.run.w run=' \
 		oai_conv_dir \

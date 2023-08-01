@@ -499,6 +499,18 @@ func IsPathAncestorOf(super, sub string) bool {
 }
 
 /*
+If the target path is relative, appends it to the base path.
+If the target path is absolute, returns it as-is.
+Always returns an absolute path.
+*/
+func PathJoinAbs(base, tar string) string {
+	if filepath.IsAbs(tar) {
+		return tar
+	}
+	return filepath.Join(gg.Try1(filepath.Abs(base)), tar)
+}
+
+/*
 Appends only new elements, avoiding dupes.
 TODO consider moving to `gg`.
 */
