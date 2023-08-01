@@ -1,9 +1,19 @@
 package oai
 
 import (
+	"_/go/u"
+	"log"
+
 	"github.com/mitranim/gg"
+	"github.com/mitranim/gg/grepr"
 )
 
+/*
+Registry of "functions" suitable for automatic use by OpenAI bots.
+Reference:
+
+	https://platform.openai.com/docs/guides/gpt/function-calling
+*/
 type Functions gg.OrdMap[FunctionName, OaiFunction]
 
 func (self Functions) Has(key FunctionName) bool {
@@ -33,4 +43,19 @@ func (self *Functions) Set(key FunctionName, val OaiFunction) {
 
 func (self *Functions) OrdMap() *gg.OrdMap[FunctionName, OaiFunction] {
 	return (*gg.OrdMap[FunctionName, OaiFunction])(self)
+}
+
+func (self Functions) Response(name FunctionName, arg string, verb u.Verbose) (_ string) {
+	fun := self.Get(name)
+	if fun == nil {
+		if verb.Verb {
+			log.Printf(`found no registered function %q, function response is empty`, name)
+		}
+		return
+	}
+
+	if verb.Verb {
+		defer gg.LogTimeNow(`running function `, grepr.String(name)).LogStart().LogEnd()
+	}
+	return fun.OaiCall(arg)
 }

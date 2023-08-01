@@ -1,0 +1,30 @@
+functions:
+- name: read_files
+  description: Request a list of files by providing a list of file names or paths.
+  parameters:
+    type: object
+    properties:
+      paths:
+        type: array
+        description: List of file names or paths.
+        items:
+          type: string
+          description: File name or path.
+- name: write_files
+  description: Provide a list of files, with file names and contents.
+  parameters:
+    type: object
+    properties:
+      files:
+        type: array
+        description: List of files, with file names and contents.
+        items:
+          type: object
+          description: Individual file, with name and content.
+          properties:
+            name:
+              type: string
+              description: File name.
+            body:
+              type: string
+              description: File content.

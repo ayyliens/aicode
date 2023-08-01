@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/mitranim/gg"
-	"github.com/mitranim/gg/grepr"
 	"github.com/rjeczalik/notify"
 )
 
@@ -37,7 +36,6 @@ func (self ClientConvDir) Run(ctx u.Ctx) {
 }
 
 func (self ClientConvDir) RunWatch(ctx u.Ctx) {
-	self.InitMessage()
 	self.InitBackupOpt()
 
 	var wat u.Watcher[ClientConvDir]
@@ -48,10 +46,6 @@ func (self ClientConvDir) RunWatch(ctx u.Ctx) {
 	wat.Run(ctx)
 }
 
-func (self ClientConvDir) InitMessage() {
-	gg.Ptr(self.OaiConvDirInit()).InitMessage()
-}
-
 func (self ClientConvDir) RunOnce(ctx u.Ctx) { self.RunOnFsEvent(ctx, nil) }
 
 func (self ClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
@@ -60,28 +54,31 @@ func (self ClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 }
 
 func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
-	dir := self.OaiConvDirInit()
+	dir := self.OaiConvDirRead()
 	defer gg.Finally(dir.LogWriteErr)
 
 	if gg.IsEmpty(dir.Messages) {
 		if self.Verb {
-			log.Println(`skipping: no messages found`)
+			log.Println(`no messages found, creating placeholder`)
 		}
+		dir.WriteNextMessagePlaceholder()
 		return
 	}
 
-	baseName := filepath.Base(u.NotifyEventPath(eve))
-	hasInter := dir.HasIntermediateMessage(baseName)
-	isInterWrite := eve != nil && eve.Event() == notify.Write && hasInter
+	if eve != nil && eve.Event() == notify.Write {
+		baseName := IndexedMessageFileNameOpt(filepath.Base(u.NotifyEventPath(eve)))
 
-	if isInterWrite {
-		if self.Fork {
-			self.ForkFromBackup(dir.ForkPath())
-		}
-		if self.Trunc {
-			dir.TruncMessagesAndFilesAfterMessageFileName(baseName, self.Verbose)
+		if dir.HasIntermediateMessage(baseName) {
+			if self.Fork {
+				self.ForkFromBackup(dir.ForkPath())
+			}
+			if self.Trunc {
+				dir.TruncMessagesAndFilesAfterIndexedMessageFileName(baseName)
+			}
 		}
 	}
+
+	dir.InitFiles(self.Functions)
 
 	msg := gg.Last(dir.Messages)
 	skip := msg.SkipReason()
@@ -92,12 +89,15 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
-	if msg.HasFunctionCall() {
-		self.RunFunction(dir, msg.GetFunctionCall())
+	// Somewhat redundant with below, TODO dedup.
+	call := msg.GetFunctionCall()
+	if gg.IsNotZero(call) {
+		self.RunFunction(dir, call)
 		return
 	}
 
-	req := dir.ChatCompletionRequest(msg)
+	req := dir.ChatCompletionRequest()
+	req.Merge(msg.RequestTemplate)
 	dir.WriteRequestLatest(req)
 
 	if self.Dry {
@@ -117,17 +117,18 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	choice := res.ChatCompletionChoice()
 	choice.FinishReason.Validate()
 
-	msg = choice.ChatCompletionMessage()
+	msg = choice.ChatCompletionMessage().ChatCompletionMessageExt()
 	msg.Validate()
 
 	dir.WriteNextMessage(msg)
+	self.RunFunctionOpt(dir, msg.GetFunctionCall())
+}
 
-	call := msg.GetFunctionCall()
+func (self ClientConvDir) RunFunctionOpt(dir ConvDir, call FunctionCall) {
 	if gg.IsZero(call) {
 		dir.WriteNextMessagePlaceholder()
 		return
 	}
-
 	self.RunFunction(dir, call)
 }
 
@@ -142,12 +143,13 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 	*/
 	defer u.Fail0(dir.WriteNextMessagePlaceholderOrSkip)
 
-	out := self.FunctionResponse(self.Functions.Get(call.Name), call.Name, call.Arguments)
+	out := self.Functions.Response(call.Name, call.Arguments.String(), self.Verbose)
 
 	if gg.IsZero(out) {
 		if self.Verb {
-			log.Printf(`skipping empty function response to avoid confusing the bot`)
+			log.Printf(`function response is empty; preferring manual text response to avoid confusing the bot`)
 		}
+		dir.WriteNextMessagePlaceholder()
 		return
 	}
 
@@ -158,20 +160,6 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 	}
 }
 
-func (self ClientConvDir) FunctionResponse(fun OaiFunction, name FunctionName, arg string) (_ string) {
-	if fun == nil {
-		if self.Verb {
-			log.Printf(`found no registered function %q, function response is empty`, name)
-		}
-		return
-	}
-
-	if self.Verb {
-		defer gg.LogTimeNow(`running function `, grepr.String(name)).LogStart().LogEnd()
-	}
-	return fun.OaiCall(arg)
-}
-
 func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest) []byte {
 	if self.Verb {
 		defer gg.LogTimeNow(`chat completion request`).LogStart().LogEnd()
@@ -179,8 +167,9 @@ func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRe
 	return self.ChatCompletionBody(ctx, req)
 }
 
-func (self *ClientConvDir) OaiConvDirInit() (out ConvDir) {
+func (self *ClientConvDir) OaiConvDirRead() (out ConvDir) {
 	out.Path = self.Path
+	out.Verbose = self.Verbose
 	out.Read()
 	return
 }
@@ -213,8 +202,21 @@ func (self ClientConvDir) InitBackup() {
 }
 
 func (self ClientConvDir) ForkFromBackup(tar string) {
+	src := self.BackupDirPath()
 	if self.Verb {
-		log.Printf(`forking directory %q to %q`, self.Path, tar)
+		log.Printf(`forking directory %q to %q from backup %q`, self.Path, tar, src)
 	}
-	u.CopyDirRec(self.BackupDirPath(), tar)
+	u.CopyDirRec(src, tar)
+}
+
+// Implement `u.FsEventSkipper`.
+func (self ClientConvDir) ShouldSkipFsEvent(eve notify.EventInfo) bool {
+	if eve == nil {
+		return true
+	}
+
+	name := filepath.Base(eve.Path())
+
+	return !IsIndexedMessageFileNameLax(name) &&
+		u.BaseNameWithoutExt(name) != BaseNameRequestTemplate
 }

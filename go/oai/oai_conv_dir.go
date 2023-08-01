@@ -7,10 +7,18 @@ import (
 	"github.com/mitranim/gg"
 )
 
+const (
+	BaseNameRequestTemplate = `request_template`
+	BaseNameRequestLatest   = `request_latest`
+	BaseNameResponseLatest  = `response_latest`
+	BaseNameRequestError    = `error`
+)
+
 // Short for "OpenAI conversation directory".
 type ConvDir struct {
 	u.Pathed
-	Messages    []ChatCompletionMessage
+	u.Verbose
+	Messages    []ChatCompletionMessageExt
 	ReqTemplate gg.Zop[ChatCompletionRequest]
 	ReqLatest   gg.Zop[ChatCompletionRequest]
 	ResLatest   gg.Zop[ChatCompletionResponse]
@@ -57,20 +65,20 @@ potentially useful scenarios, such as:
 	  and/or forking is not enabled.
 */
 func (self *ConvDir) ReadMessages() {
-	for ind, path := range self.MessageFileNames() {
+	for ind, path := range self.IndexedMessageFileNames() {
 		self.ReadMessageFile(path).ValidateIndex(ind)
 	}
 	self.ValidateMessages()
 }
 
-func (self *ConvDir) ReadMessageFile(name string) (out MessageFileName) {
+func (self *ConvDir) ReadMessageFile(name string) (out IndexedMessageFileName) {
 	gg.Try(out.Parse(name))
-	gg.Append(&self.Messages, out.ChatCompletionMessage(self.PathJoin(name)))
+	gg.Append(&self.Messages, out.ChatCompletionMessageExt(self.PathJoin(name)))
 	return
 }
 
-func (self ConvDir) MessageFileNames() []string {
-	return gg.Filter(u.ReadDirFileNames(self.Path), IsMessageFileNameLax)
+func (self ConvDir) IndexedMessageFileNames() []string {
+	return gg.Filter(u.ReadDirFileNames(self.Path), IsIndexedMessageFileNameLax)
 }
 
 /*
@@ -84,47 +92,67 @@ func (self ConvDir) ValidateMessages() {
 }
 
 func (self ConvDir) RequestTemplatePath(ext string) string {
-	return self.PathJoin(`request_template` + ext)
+	return self.PathJoin(BaseNameRequestTemplate + ext)
 }
 
 func (self ConvDir) RequestLatestPathJson() string {
-	return self.PathJoin(`request_latest.json`)
+	return self.PathJoin(BaseNameRequestLatest + `.json`)
 }
 
 // Can change to any extension supported by `u.PolyEncodeFileOpt`.
 func (self ConvDir) ResponseLatestPath() string {
-	return self.PathJoin(`response_latest.json`)
+	return self.PathJoin(BaseNameResponseLatest + `.json`)
 }
 
 func (self ConvDir) ResponseLatestPathJson() string {
-	return self.PathJoin(`response_latest.json`)
+	return self.PathJoin(BaseNameResponseLatest + `.json`)
 }
 
-func (self ConvDir) ErrorPath() string { return self.PathJoin(`error.txt`) }
+func (self ConvDir) ErrorPath() string {
+	return self.PathJoin(BaseNameRequestError + `.txt`)
+}
 
 func (self ConvDir) ForkPath() string { return u.IndexedDirForkPath(self.Path) }
 
-func (self *ConvDir) InitMessage() {
+/*
+Side-effectful initialization.
+Should be performed after `.Read`.
+TODO better name.
+*/
+func (self *ConvDir) InitFiles(funs Functions) {
+	self.EvalMessages(funs)
+	self.InitNextMessagePlaceholder()
+}
+
+func (self *ConvDir) EvalMessages(funs Functions) {
+	msgs := self.Messages
+	last := gg.Last(msgs)
+	if last.NextMessage == nil {
+		return
+	}
+
+	next := *last.NextMessage
+	if next.HasInternalFunctionCall() {
+		next.Content = funs.Response(next.Name, next.Arguments.String(), self.Verbose)
+	}
+
+	self.WriteNextMessage(next)
+}
+
+func (self *ConvDir) InitNextMessagePlaceholder() {
 	if gg.IsEmpty(self.Messages) {
 		self.WriteNextMessagePlaceholder()
 	}
 }
 
 func (self ConvDir) ValidMessages() []ChatCompletionMessage {
-	return gg.Filter(self.Messages, ChatCompletionMessage.IsValid)
+	return gg.MapCompact(self.Messages, ChatCompletionMessageExt.ValidChatCompletionMessage)
 }
 
-/*
-The input is the message from which we'll continue the conversation.
-Typically this is the latest message.
-*/
-func (self ConvDir) ChatCompletionRequest(msg ChatCompletionMessage) ChatCompletionRequest {
+func (self ConvDir) ChatCompletionRequest() ChatCompletionRequest {
 	tar := self.ReqTemplate.Val
 	tar.Default()
 	tar.Messages = self.ValidMessages()
-	if msg.RequestTemplate != nil {
-		tar.Merge(*msg.RequestTemplate)
-	}
 	return tar
 }
 
@@ -155,13 +183,13 @@ func (self *ConvDir) WriteNextMessagePlaceholderOrSkip() {
 }
 
 func (self *ConvDir) WriteNextMessagePlaceholder() {
-	var tar ChatCompletionMessage
+	var tar ChatCompletionMessageExt
 	tar.Role = ChatMessageRoleUser
 	self.WriteNextMessage(tar)
 }
 
 func (self *ConvDir) WriteNextMessageFunctionResponse(name FunctionName, body string) {
-	var tar ChatCompletionMessage
+	var tar ChatCompletionMessageExt
 	tar.Role = ChatMessageRoleFunction
 	tar.Name = name
 	tar.Content = body
@@ -172,22 +200,23 @@ func (self *ConvDir) WriteNextMessageFunctionResponsePlaceholder(src FunctionCal
 	self.WriteNextMessageFunctionResponse(src.Name, ``)
 }
 
-func (self *ConvDir) WriteNextMessage(src ChatCompletionMessage) {
+func (self *ConvDir) WriteNextMessage(src ChatCompletionMessageExt) {
 	ext, body := src.ExtBody()
 
-	var tar MessageFileName
-	tar.Index = gg.NumConv[uint](self.NextIndex())
+	var tar IndexedMessageFileName
+	tar.Index = self.NextIndex()
 	tar.Role = src.Role
 	tar.Ext = ext
 
-	name := tar.String()
-	src.FileName = name
+	src.FileName = tar
 
-	u.WriteFileRec(self.PathJoin(name), body)
+	u.WriteFileRec(self.PathJoin(tar.String()), body)
 	gg.Append(&self.Messages, src)
 }
 
-func (self ConvDir) NextIndex() int { return len(self.Messages) }
+func (self ConvDir) NextIndex() uint {
+	return gg.NumConv[uint](len(self.Messages))
+}
 
 func (self ConvDir) LogWriteErr(err error) {
 	if u.IsErrContextCancel(err) {
@@ -207,36 +236,34 @@ func (self ConvDir) WriteErr(err error) {
 	}.Run()
 }
 
-func (self ConvDir) HasIntermediateMessage(name string) bool {
+func (self ConvDir) HasIntermediateMessage(name IndexedMessageFileName) bool {
 	return gg.IsNotZero(name) &&
-		gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessage) bool {
+		gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessageExt) bool {
 			return val.FileName == name
 		})
 }
 
-func (self *ConvDir) TruncMessagesAndFilesAfterMessageFileName(
-	name string,
-	verb u.Verbose,
-) {
+func (self *ConvDir) TruncMessagesAndFilesAfterIndexedMessageFileName(name IndexedMessageFileName) {
 	if !self.HasIntermediateMessage(name) {
 		return
 	}
 
-	if verb.Verb {
+	if self.Verb {
 		log.Printf(`truncating messages after %q`, name)
 	}
 
 	for gg.IsNotEmpty(self.Messages) {
 		msg := gg.Last(self.Messages)
-		if msg.FileName == name {
+		msgName := msg.FileName
+		if msgName == name {
 			return
 		}
 
-		if verb.Verb {
-			log.Printf(`removing message %q`, msg.FileName)
+		if self.Verb {
+			log.Printf(`removing message %q`, msgName)
 		}
 
-		u.RemoveFileOrDir(self.PathJoin(msg.FileName))
+		u.RemoveFileOrDir(self.PathJoin(msgName.String()))
 		self.Messages = gg.Init(self.Messages)
 	}
 }

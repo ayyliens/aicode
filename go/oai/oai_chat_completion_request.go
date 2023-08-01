@@ -30,12 +30,8 @@ func (self *ChatCompletionRequest) IsValid() bool {
 	return msg.Role == ChatMessageRoleUser && msg.IsValid()
 }
 
-/*
-Relies on `,omitempty` in all fields. Also not entirely correct. This will fail
-to overwrite fields which are present in the source template but set to zero
-values. The information about present zero fields is lost when the source value
-is decoded from its original text format.
-*/
-func (self *ChatCompletionRequest) Merge(src ChatCompletionRequest) {
-	gg.JsonDecode(gg.JsonString(src), self)
+func (self *ChatCompletionRequest) Merge(src any) {
+	if src != nil {
+		gg.JsonDecode(gg.JsonString(src), self)
+	}
 }

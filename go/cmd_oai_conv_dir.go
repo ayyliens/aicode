@@ -2,6 +2,7 @@ package main
 
 import (
 	"_/go/oai"
+	"_/go/u"
 	"context"
 
 	"github.com/mitranim/cmd"
@@ -47,10 +48,6 @@ func (self CmdOaiConvDir) Run() {
 		}
 	}
 
-	self.Ignore = gg.Union(self.Ignore, gg.Compacted(
-		self.SrcPath,
-		self.OutPath,
-	))
-
+	self.Ignore = u.AdjoinCompact(self.Ignore, self.SrcPath, self.OutPath)
 	self.ClientConvDir.Run(context.Background())
 }

@@ -85,7 +85,7 @@ func (self *IndexedDirName) Parse(src string) error {
 
 /*
 Note: the amount of digits must be fixed. See the comment on
-`ReMessageFileNameStrict` for an explanation.
+`ReIndexedMessageFileNameStrict` for an explanation.
 */
 var ReIndexedDirName = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`(.*)_(\d{4})?$`)

@@ -2,7 +2,6 @@ package oai
 
 import (
 	"_/go/u"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -10,11 +9,11 @@ import (
 	"github.com/mitranim/gg/grepr"
 )
 
-func IsMessageFileNameLax(val string) bool {
-	return ReMessageFileNameLax.Get().MatchString(val)
+func IsIndexedMessageFileNameLax(val string) bool {
+	return ReIndexedMessageFileNameLax.Get().MatchString(val)
 }
 
-var ReMessageFileNameLax = gg.NewLazy(func() *regexp.Regexp {
+var ReIndexedMessageFileNameLax = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`^\d`)
 })
 
@@ -26,33 +25,46 @@ We COULD internally order by parsed indexes, but we also want to ensure that
 files are ordered the same way in all FS browsers, including the OS built-ins
 and file lists in code editors, which requires a fixed digit count.
 */
-var ReMessageFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
+var ReIndexedMessageFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`^(\d{4})_msg_([a-z][a-z\d]*)([.][a-z]+)?$`)
 })
 
-type MessageFileName struct {
+func IndexedMessageFileNameOpt(src string) (out IndexedMessageFileName) {
+	gg.Nop1(out.Parse(src))
+	return
+}
+
+/*
+Represents an indexed message file name, with decoding and encoding support.
+Example names:
+
+	0000_msg_user.md
+	0001_msg_assistant.md
+	0002_msg_function.yaml
+*/
+type IndexedMessageFileName struct {
 	Index uint
 	Role  ChatMessageRole
 	Ext   string
 }
 
-func (self MessageFileName) IsValid() bool { return gg.IsNotZero(self.Role) }
+func (self IndexedMessageFileName) IsValid() bool { return gg.IsNotZero(self.Role) }
 
-func (self MessageFileName) String() (_ string) {
+func (self IndexedMessageFileName) String() (_ string) {
 	if !self.IsValid() {
 		return
 	}
 	return self.IndexString() + `_msg_` + string(self.Role) + self.Ext
 }
 
-func (self MessageFileName) IndexString() string {
+func (self IndexedMessageFileName) IndexString() string {
 	return u.NumToPaddedString(self.Index)
 }
 
-func (self *MessageFileName) Parse(src string) (err error) {
+func (self *IndexedMessageFileName) Parse(src string) (err error) {
 	defer gg.Rec(&err)
 
-	reg := ReMessageFileNameStrict.Get()
+	reg := ReIndexedMessageFileNameStrict.Get()
 	mat := reg.FindStringSubmatch(src)
 
 	if mat == nil {
@@ -68,16 +80,16 @@ func (self *MessageFileName) Parse(src string) (err error) {
 	return
 }
 
-func (self MessageFileName) ValidateIndex(ind int) {
-	ValidateIndex[MessageFileName](gg.NumConv[int](self.Index), ind)
+func (self IndexedMessageFileName) ValidateIndex(ind int) {
+	ValidateIndex[IndexedMessageFileName](gg.NumConv[int](self.Index), ind)
 }
 
 // TODO consider validating the message.
-func (self MessageFileName) ChatCompletionMessage(path string) (out ChatCompletionMessage) {
+func (self IndexedMessageFileName) ChatCompletionMessageExt(path string) (out ChatCompletionMessageExt) {
 	defer gg.Detailf(`unable to decode msg %q`, path)
 
 	out.Role = self.Role
-	out.FileName = filepath.Base(path)
+	out.FileName = self
 
 	switch self.Ext {
 	case ``, `.txt`, `.md`:
