@@ -510,25 +510,6 @@ func PathJoinAbs(base, tar string) string {
 	return filepath.Join(gg.Try1(filepath.Abs(base)), tar)
 }
 
-/*
-Appends only new elements, avoiding dupes.
-TODO consider moving to `gg`.
-*/
-func Adjoin[Slice ~[]Elem, Elem comparable](tar Slice, src ...Elem) Slice {
-	if gg.IsEmpty(src) {
-		return tar
-	}
-
-	set := gg.SetOf(tar...)
-	for _, src := range src {
-		if set.Has(src) {
-			continue
-		}
-		tar = append(tar, src)
-	}
-	return tar
-}
-
 func AdjoinCompact[Slice ~[]Elem, Elem comparable](tar Slice, src ...Elem) Slice {
-	return gg.Compact(Adjoin(tar, src...))
+	return gg.Compact(gg.Adjoin(tar, src...))
 }

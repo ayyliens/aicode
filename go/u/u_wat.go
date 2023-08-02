@@ -51,22 +51,20 @@ type Watcher[A FsEventer] struct {
 }
 
 /*
-Note: defining this method on a value type, rather than a pointer type, makes it
-safe for external callers to make multiple `.Run` calls on the same value,
-without concurrency hazards.
+Note: defining this method on a value type, rather than a pointer type, allows
+external callers to make multiple concurrent `.Run` calls on the same watcher
+value, without concurrency hazards.
 */
 func (self Watcher[_]) Run(ctx Ctx) {
-	self.NormIgnore()
+	self.normIgnore()
+	self.runInitOpt(ctx)
 
-	if self.Init {
-		self.Runner.OnFsEvent(ctx, nil)
-	}
-
-	if self.Touched() {
-		// File events are async. The event from creating a file or directory
-		// can and does arrive after we've started watching. TODO recheck.
-		self.wait(ctx)
-	}
+	// Technical note: file events are async. At the time of writing, on the
+	// author's system (MacOS), the event from creating a file or directory,
+	// triggered BEFORE we start watching, can and does arrive AFTER we start
+	// watching, causing an immediate rerun in our FS event loop. This may vary
+	// by OS.
+	self.touch()
 
 	defer self.unwatch()
 	self.watch()
@@ -78,7 +76,7 @@ func (self Watcher[_]) Run(ctx Ctx) {
 		select {
 		case <-ctx.Done():
 			if self.Verb {
-				log.Println(`context canceled, watcher stopping`)
+				log.Println(`[watcher] context canceled, watcher stopping`)
 			}
 			return
 
@@ -96,9 +94,19 @@ func (self *Watcher[_]) unwatch() {
 
 	notify.Stop(tar)
 	if self.Verb {
-		log.Printf(`unwatching %q`, self.Path)
+		log.Printf(`[watcher] unwatching %q`, self.Path)
 	}
 	self.events = nil
+}
+
+func (self *Watcher[_]) runInitOpt(ctx Ctx) {
+	if !self.Init {
+		return
+	}
+	if self.Verb {
+		defer gg.LogTimeNow(`[watcher] initial run`).LogStart().LogEnd()
+	}
+	self.Runner.OnFsEvent(ctx, nil)
 }
 
 func (self *Watcher[_]) watch() {
@@ -114,7 +122,7 @@ func (self *Watcher[_]) watch() {
 	self.events = make(chan notify.EventInfo)
 
 	if self.Verb {
-		log.Printf(`watching %q`, self.Path)
+		log.Printf(`[watcher] watching %q`, self.Path)
 	}
 	gg.Try(notify.Watch(self.Pattern(), self.events, gg.Or(self.Filter, notify.All)))
 }
@@ -126,7 +134,9 @@ func (self *Watcher[_]) watchDelayed(ctx Ctx) {
 
 func (self *Watcher[_]) onFsEvent(ctx Ctx, eve notify.EventInfo) {
 	if self.ShouldSkipFsEvent(eve) {
-		log.Println(`ignoring file event:`, eve)
+		if self.Verb {
+			log.Println(`[watcher] ignoring file event:`, eve)
+		}
 		return
 	}
 
@@ -135,34 +145,47 @@ func (self *Watcher[_]) onFsEvent(ctx Ctx, eve notify.EventInfo) {
 	}
 
 	if self.Verb {
-		log.Println(`file event:`, eve)
+		log.Println(`[watcher] file event:`, eve)
 	}
 
-	/**
-	Ideally, this would prevent us from self-triggering FS events due to
-	`self.Runner.OnFsEvent`. However, watch/unwatch and event processing
-	seems asynchronous in the library we use, so in practice this doesn't
-	seem to help. We still rely on delays to avoid self-triggering.
-	*/
 	self.unwatch()
 	defer self.watch()
+	// Unclear if we need a delay here.
 	// defer self.watchDelayed(ctx)
 
 	self.Runner.OnFsEvent(ctx, eve)
 }
 
 /*
-Supported for technical reasons. If the target doesn't exist, the watcher
-library returns an error. Auto-creating the target avoids that.
+This functionality is supported / provided for technical reasons. It would be
+cleaner to start watching without creating the target, but if the target
+doesn't exist, the watcher library returns an error. Auto-creating the target
+avoids that.
 */
-func (self Watcher[_]) Touched() bool {
+func (self Watcher[_]) touch() { self.touched() }
+
+func (self Watcher[_]) touched() bool {
 	if !self.Create {
 		return false
 	}
+
 	if self.IsDir {
-		return TouchedDirRec(self.Path)
+		if TouchedDirRec(self.Path) {
+			if self.Verb {
+				log.Printf(`[watcher] touched directory %q`, self.Path)
+			}
+			return true
+		}
+		return false
 	}
-	return TouchedFileRec(self.Path)
+
+	if TouchedFileRec(self.Path) {
+		if self.Verb {
+			log.Printf(`[watcher] touched file %q`, self.Path)
+		}
+		return true
+	}
+	return false
 }
 
 func (self Watcher[_]) Pattern() string {
@@ -176,17 +199,17 @@ func (self Watcher[_]) Pattern() string {
 Normalizes relative paths to absolute for compatibility with
 `notify.EventInfo.Path` which returns absolute paths.
 */
-func (self *Watcher[_]) NormIgnore() {
+func (self *Watcher[_]) normIgnore() {
 	for ind, val := range self.Ignore {
 		self.Ignore[ind] = gg.Try1(filepath.Abs(val))
 	}
 }
 
-func (self Watcher[_]) ShouldSkipFsEvent(eve notify.EventInfo) bool {
+func (self *Watcher[_]) ShouldSkipFsEvent(eve notify.EventInfo) bool {
 	if eve == nil || self.ShouldSkipPath(eve.Path()) {
 		return true
 	}
-	impl := gg.AnyAs[FsEventSkipper](self.Runner)
+	impl := gg.AnyAs[FsEventSkipper](&self.Runner)
 	return impl != nil && impl.ShouldSkipFsEvent(eve)
 }
 

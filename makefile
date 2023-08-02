@@ -5,11 +5,12 @@ MAKEFLAGS := --silent --always-make
 MAKE_PAR := $(MAKE) -j 128
 WATCH := watchexec -r -c -d=0 -n
 GOW := gow -c -v -w=go
-VERB := $(if $(filter $(verb),true), -v,)
 FAIL := $(if $(filter $(fail),false),,-failfast)
 SHORT := $(if $(filter $(short),true), -short,)
+VERB := $(if $(filter $(verb),true), -v,)
+VERB_LONG := $(if $(filter $(verb),false),,--verb)
 CLEAR := $(if $(filter $(clear),false),,-c)
-CLEAR_LONG := $(if $(filter $(clear),false),,--clear)
+CLEAR_LONG := $(if $(filter $(clear),true),--clear,)
 GO_SRC := ./go
 GO_PKG := ./$(or $(pkg),$(GO_SRC)/...)
 GO_FLAGS := -tags=$(tags) -mod=mod
@@ -19,7 +20,7 @@ GO_TEST_PATTERNS := -run="$(run)"
 default:
 	$(MAKE) go.run.w run=' \
 		oai_conv_dir \
-		--verb \
+		$(VERB_LONG) \
 		--path=local/conv \
 		--watch \
 		--init \
@@ -33,7 +34,7 @@ example.xln:
 	cp -r local_example/conv_example_xln $(TAR)
 	$(MAKE) go.run.w run=' \
 		oai_conv_dir \
-		--verb \
+		$(VERB_LONG) \
 		--path=$(TAR) \
 		--funcs \
 		--src-path=$(TAR)/src_files \

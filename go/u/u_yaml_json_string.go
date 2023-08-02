@@ -19,17 +19,11 @@ type YamlJsonString string
 
 func (self YamlJsonString) String() string { return string(self) }
 
-func (self YamlJsonString) MarshalYAML() (any, error) {
-	if gg.IsZero(self) {
-		return nil, nil
+func (self YamlJsonString) MarshalYAML() (tar any, err error) {
+	if gg.IsNotZero(self) {
+		err = json.Unmarshal(gg.ToBytes(self), &tar)
 	}
-
-	var tar any
-	err := json.Unmarshal(gg.ToBytes(self), &tar)
-	if err != nil {
-		return nil, err
-	}
-	return tar, nil
+	return
 }
 
 func (self *YamlJsonString) UnmarshalYAML(src *yaml.Node) error {
