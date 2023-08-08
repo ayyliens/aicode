@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/joho/godotenv"
 	"github.com/mitranim/gg"
 	"github.com/mitranim/jsonfmt"
 	mofo "golang.org/x/mod/modfile"
@@ -37,6 +36,13 @@ func DecodeJsonLinesInto[Slice ~[]Elem, Elem any, Src io.Reader](src Src, out *S
 	for dec.More() {
 		gg.Try(dec.Decode(gg.AppendPtrZero(out)))
 	}
+	return
+}
+
+func ReadJsonLines[Elem any](path string) (out []Elem) {
+	src := gg.Try1(os.OpenFile(path, os.O_RDONLY, os.ModePerm))
+	defer gg.Close(src)
+	DecodeJsonLinesInto(src, &out)
 	return
 }
 
@@ -433,12 +439,6 @@ func PkgRelPath(path string) string {
 
 // TODO better name.
 func JoinLines2Opt(src ...string) string { return gg.JoinOpt(src, "\n\n") }
-
-func LoadEnvFiles() {
-	for _, base := range gg.Reversed(strings.Split(os.Getenv(`CONF`), `,`)) {
-		gg.Try(godotenv.Load(filepath.Join(base, `.env.properties`)))
-	}
-}
 
 // TODO move to `gg`.
 func IsTextBlank[A gg.Text](src A) bool {

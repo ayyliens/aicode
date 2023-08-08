@@ -1,10 +1,13 @@
 package main
 
 import (
-	"_/go/u"
+	"_/go/oai"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joeshaw/envdecode"
+	"github.com/joho/godotenv"
 	"github.com/mitranim/cmd"
 	"github.com/mitranim/gg"
 )
@@ -12,17 +15,19 @@ import (
 func main() {
 	log.SetFlags(0)
 	defer gg.Fatal()
-	u.LoadEnvFiles()
 
-	key := os.Getenv(`OPENAI_API_KEY`)
+	var conf Conf
+	conf.Init()
+
+	client := conf.OaiClient()
 
 	cmd.Map{
 		`oai_conv_file`: gg.With(func(tar *CmdOaiConvFile) {
-			tar.ApiKey = key
+			tar.Client = client
 		}).RunCli,
 
 		`oai_conv_dir`: gg.With(func(tar *CmdOaiConvDir) {
-			tar.ApiKey = key
+			tar.Client = client
 		}).RunCli,
 
 		`fork_dir`: CmdForkDir{}.RunCli,
@@ -33,4 +38,35 @@ func main() {
 			OutPath: `local/oas_doc.yaml`,
 		}.RunCli,
 	}.Get()()
+}
+
+type Conf struct {
+	OpenAiApiKey string `env:"OPEN_AI_API_KEY"`
+	OpenAiMock   bool   `env:"OPEN_AI_MOCK"`
+}
+
+func (self *Conf) Init() {
+	LoadEnvFileOpt(os.Getenv(`CONF`))
+	LoadEnvFileOpt(`.`)
+	gg.Try(envdecode.StrictDecode(self))
+}
+
+func LoadEnvFileOpt(path string) {
+	if gg.IsNotZero(path) {
+		gg.Try(godotenv.Load(filepath.Join(path, `.env.properties`)))
+	}
+}
+
+func (self Conf) OaiClient() oai.Client {
+	if self.OpenAiMock {
+		return gg.Zero[oai.MockClient]()
+	}
+
+	if gg.IsNotZero(self.OpenAiApiKey) {
+		var tar oai.HttpClient
+		tar.ApiKey = self.OpenAiApiKey
+		return tar
+	}
+
+	panic(gg.Errv(`unable to make OpenAI client: missing API key and mocks not enabled`))
 }

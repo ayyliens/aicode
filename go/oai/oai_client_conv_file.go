@@ -51,7 +51,7 @@ func (self ClientConvFile) RunOnce(ctx u.Ctx) {
 
 	defer gg.Fail(func(error) { gg.WriteFile(self.Path, src) })
 
-	res := self.ChatCompletion(ctx, req)
+	res := self.ChatCompletionResponse(ctx, req)
 	if self.Verb {
 		grepr.Prn(`ChatCompletionResponse:`, res)
 	}
