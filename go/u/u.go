@@ -134,7 +134,9 @@ func IsErrFileNotFound(err error) bool { return errors.Is(err, os.ErrNotExist) }
 
 func RemoveFileOrDir(path string) { gg.Try(os.Remove(path)) }
 
-func RemoveFileOrDirOpt(path string) { gg.Nop1(os.Remove(path)) }
+func RemoveFileOrDirOrSkip(path string) { gg.Nop1(os.Remove(path)) }
+
+func RemoveAllOrSkip(path string) { gg.Nop1(os.RemoveAll(path)) }
 
 func LogErr(err error) {
 	if err == nil {
@@ -151,7 +153,7 @@ func Wait(ctx Ctx, dur time.Duration) {
 	}
 }
 
-func PolyDecodeFileOpt[A any](path string, tar *A) {
+func PolyDecodeFileOpt[Src any](path string, tar *Src) {
 	ext := FileExt(path)
 
 	switch ext {
@@ -162,8 +164,46 @@ func PolyDecodeFileOpt[A any](path string, tar *A) {
 	case `.toml`:
 		TomlDecodeFileOpt(path, tar)
 	default:
-		panic(gg.Errf(`unable to polymorphically decode %q: unrecognized extension %q`, path, ext))
+		panic(errPolyDecodeExt(path, ext))
 	}
+}
+
+func PolyDecodeFile[Src any](path string, tar *Src) {
+	ext := FileExt(path)
+
+	switch ext {
+	case `.json`:
+		JsonDecodeFile(path, tar)
+	case `.yaml`:
+		YamlDecodeFile(path, tar)
+	case `.toml`:
+		TomlDecodeFile(path, tar)
+	default:
+		panic(errPolyDecodeExt(path, ext))
+	}
+}
+
+func PolyDecode[Src gg.Text, Out any](src Src, tar *Out, ext string) {
+	switch ext {
+	case `.json`:
+		gg.JsonDecode(src, tar)
+	case `.yaml`:
+		YamlDecode(src, tar)
+	case `.toml`:
+		TomlDecode(src, tar)
+	default:
+		panic(gg.Errf(
+			`unable to polymorphically decode into %T: unrecognized extension %q`,
+			tar, ext,
+		))
+	}
+}
+
+func errPolyDecodeExt(path, ext string) error {
+	return gg.Errf(
+		`unable to polymorphically decode %q: unrecognized extension %q`,
+		path, ext,
+	)
 }
 
 func PolyEncodeFileOpt[A any](path string, src A) {
@@ -177,7 +217,26 @@ func PolyEncodeFileOpt[A any](path string, src A) {
 	case `.toml`:
 		TomlEncodeFileOpt(path, src)
 	default:
-		panic(gg.Errf(`unable to polymorphically encode %q: unrecognized extension %q`, path, ext))
+		panic(gg.Errf(
+			`unable to polymorphically encode %v into %q: unrecognized extension %q`,
+			gg.Type[A](), path, ext,
+		))
+	}
+}
+
+func PolyEncode[Out gg.Text, Src any](src Src, ext string) Out {
+	switch ext {
+	case `.json`:
+		return gg.JsonEncode[Out](src)
+	case `.yaml`:
+		return YamlEncode[Out](src)
+	case `.toml`:
+		return TomlEncode[Out](src)
+	default:
+		panic(gg.Errf(
+			`unable to polymorphically encode %v: unrecognized extension %q`,
+			gg.Type[Src](), ext,
+		))
 	}
 }
 
@@ -205,7 +264,7 @@ func JsonDecodeFile[A any](path string, tar *A) {
 
 func JsonDecodeFileOpt[A any](path string, tar *A) {
 	src := strings.TrimSpace(ReadFileOpt[string](path))
-	if gg.IsNotZero(src) {
+	if gg.IsTextNotEmpty(src) {
 		defer gg.Detailf(`unable to decode %q as JSON`, path)
 		gg.JsonDecode(src, tar)
 	}
@@ -240,7 +299,7 @@ func YamlDecode[Src gg.Text, Tar any](src Src, tar *Tar) {
 }
 
 func YamlDecodeOpt[Src gg.Text, Tar any](src Src, tar *Tar) {
-	if gg.IsNotZero(src) {
+	if gg.IsTextNotEmpty(src) {
 		YamlDecode(src, tar)
 	}
 }
@@ -252,7 +311,7 @@ func YamlDecodeFile[A any](path string, tar *A) {
 
 func YamlDecodeFileOpt[A any](path string, tar *A) {
 	src := strings.TrimSpace(ReadFileOpt[string](path))
-	if gg.IsNotZero(src) {
+	if gg.IsTextNotEmpty(src) {
 		defer gg.Detailf(`unable to decode %q as YAML`, path)
 		YamlDecode(src, tar)
 	}
@@ -278,7 +337,7 @@ func TomlDecode[Src gg.Text, Tar any](src Src, tar *Tar) {
 }
 
 func TomlDecodeOpt[Src gg.Text, Tar any](src Src, tar *Tar) {
-	if gg.IsNotZero(src) {
+	if gg.IsTextNotEmpty(src) {
 		TomlDecode(src, tar)
 	}
 }
@@ -290,7 +349,7 @@ func TomlDecodeFile[A any](path string, tar *A) {
 
 func TomlDecodeFileOpt[A any](path string, tar *A) {
 	src := strings.TrimSpace(ReadFileOpt[string](path))
-	if gg.IsNotZero(src) {
+	if gg.IsTextNotEmpty(src) {
 		defer gg.Detailf(`unable to decode %q as TOML`, path)
 		TomlDecode(src, tar)
 	}

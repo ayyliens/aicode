@@ -14,81 +14,116 @@ const (
 	BaseNameRequestError    = `error`
 )
 
-// Short for "OpenAI conversation directory".
+/*
+Short for "conversation directory". Abstraction with various methods for
+operating on a directory containing a conversation with an OpenAI bot.
+*/
 type ConvDir struct {
 	u.Pathed
 	u.Verbose
-	Messages    []ChatCompletionMessageExt
-	ReqTemplate gg.Zop[ChatCompletionRequest]
-	ReqLatest   gg.Zop[ChatCompletionRequest]
-	ResLatest   gg.Zop[ChatCompletionResponse]
-}
-
-func (self *ConvDir) Read() {
-	self.ReadRequestTemplate()
-	self.ReadRequestLatest()
-	self.ReadResponseLatest()
-	self.ReadMessages()
-}
-
-func (self *ConvDir) ReadRequestTemplate() {
-	tar := &self.ReqTemplate.Val
-	u.JsonDecodeFileOpt(self.RequestTemplatePath(`.json`), tar)
-	u.YamlDecodeFileOpt(self.RequestTemplatePath(`.yaml`), tar)
-	u.TomlDecodeFileOpt(self.RequestTemplatePath(`.toml`), tar)
-}
-
-func (self *ConvDir) ReadRequestLatest() {
-	u.PolyDecodeFileOpt(self.RequestLatestPathJson(), &self.ReqLatest.Val)
-}
-
-func (self *ConvDir) ReadResponseLatest() {
-	u.PolyDecodeFileOpt(self.ResponseLatestPath(), &self.ResLatest.Val)
 }
 
 /*
-TODO consider preserving file names when reading and writing messages.
-File names would be a "secret" field not exposed in JSON. This would be
-useful for operations that involve comparing file names, comparing paths,
-etc.
-
-TODO: instead of forbidding "holes" in message indexes, use them. When
-performing a run, instead of always continuing from the last message, continue
-from the last message before the first "hole". This would allow additional
-potentially useful scenarios, such as:
-
-	* Pre-create multiple "user" message files with indexes 0, 2, 4, etc.,
-	  as a "dialogue framework" for a sequence of expected bot responses.
-
-	* Deleting a message in the middle of a conversation would be a convenient way
-	  to "retry"/"redo" that part of the conversation, especially when truncation
-	  and/or forking is not enabled.
+Side-effectful initialization.
+TODO better name.
 */
-func (self *ConvDir) ReadMessages() {
-	for ind, path := range self.IndexedMessageFileNames() {
-		self.ReadMessageFile(path).ValidateIndex(ind)
+func (self ConvDir) InitFiles(funs Functions) {
+	self.EvalFiles(funs)
+	self.InitNextMessagePlaceholder()
+}
+
+func (self ConvDir) EvalFiles(funs Functions) {
+	for _, name := range self.IndexedFileNames() {
+		self.EvalFileOpt(name, funs)
 	}
-	self.ValidateMessages()
 }
 
-func (self *ConvDir) ReadMessageFile(name string) (out IndexedMessageFileName) {
-	gg.Try(out.Parse(name))
-	gg.Append(&self.Messages, out.ChatCompletionMessageExt(self.PathJoin(name)))
-	return
-}
-
-func (self ConvDir) IndexedMessageFileNames() []string {
-	return gg.Filter(u.ReadDirFileNames(self.Path), IsIndexedMessageFileNameLax)
-}
-
-/*
-Note: the last message is meant to be a placeholder for the user, and is allowed
-to have empty content, so we don't validate it.
-*/
-func (self ConvDir) ValidateMessages() {
-	for _, msg := range gg.Init(self.Messages) {
-		msg.Validate()
+func (self ConvDir) EvalFileOpt(srcName IndexedFileName, funs Functions) {
+	if !srcName.IsEval() {
+		return
 	}
+
+	var eval ConvFileEval
+	eval.DecodeFrom(srcName, self.ReadIndexedFile(srcName))
+
+	tarName := eval.ValidTargetName()
+	tarPath := self.JoinPathIndexed(tarName)
+
+	if self.HasFile(tarPath) {
+		return
+	}
+
+	call := eval.FunctionCall
+
+	var msg ChatCompletionMessage
+	msg.Role = ChatMessageRoleFunction
+	msg.Name = call.Name
+	msg.Content = funs.Response(call.Name, call.Arguments.String(), self.Verbose)
+	msg.Validate()
+
+	gg.WriteFile(tarPath, u.PolyEncode[[]byte](msg, tarName.Ext))
+}
+
+func (self ConvDir) InitNextMessagePlaceholder() {
+	if self.NeedNextMessagePlaceholder() {
+		self.WriteNextMessagePlaceholder()
+	}
+}
+
+func (self ConvDir) NeedNextMessagePlaceholder() bool {
+	return !self.HasIndexedFiles() || self.IsLastMessageFromAssistant()
+}
+
+func (self ConvDir) IsLastMessageFromAssistant() bool {
+	return self.LastIndexedFileName().Role == ChatMessageRoleAssistant
+}
+
+func (self ConvDir) IndexedFileNames() []IndexedFileName {
+	names := gg.Map(self.IndexedFileNameCandidates(), ParseIndexedFileNameValid)
+	ValidateIndexedFileNames(names)
+	return names
+}
+
+func (self ConvDir) IndexedFileNameCandidates() []string {
+	return gg.Filter(u.ReadDirFileNames(self.Path), IsIndexedFileNameLax)
+}
+
+func (self ConvDir) JoinPathIndexed(name IndexedFileName) string {
+	return self.PathJoin(name.ValidString())
+}
+
+func (self ConvDir) HasIndexedFiles() bool {
+	return gg.IsNotEmpty(self.IndexedFileNameCandidates())
+}
+
+func (self ConvDir) HasIndexedFile(name IndexedFileName) bool {
+	return self.HasFile(name.ValidString())
+}
+
+func (self ConvDir) ReadIndexedFile(name IndexedFileName) []byte {
+	return self.ReadFile(name.ValidString())
+}
+
+func (self ConvDir) WriteIndexedFile(name IndexedFileName, body []byte) {
+	self.WriteFile(name.ValidString(), body)
+}
+
+func (self ConvDir) DeleteIndexedFile(name IndexedFileName) {
+	self.DeleteFile(name.ValidString())
+}
+
+func (self ConvDir) ReadRequestTemplate(out *ChatCompletionRequest) {
+	u.JsonDecodeFileOpt(self.RequestTemplatePath(`.json`), out)
+	u.YamlDecodeFileOpt(self.RequestTemplatePath(`.yaml`), out)
+	u.TomlDecodeFileOpt(self.RequestTemplatePath(`.toml`), out)
+}
+
+func (self ConvDir) ReadRequestLatest(out *ChatCompletionRequest) {
+	u.PolyDecodeFileOpt(self.RequestLatestPathJson(), out)
+}
+
+func (self ConvDir) ReadResponseLatest(out *ChatCompletionResponse) {
+	u.PolyDecodeFileOpt(self.ResponseLatestPath(), out)
 }
 
 func (self ConvDir) RequestTemplatePath(ext string) string {
@@ -112,60 +147,123 @@ func (self ConvDir) ErrorPath() string {
 	return self.PathJoin(BaseNameRequestError + `.txt`)
 }
 
-func (self ConvDir) ForkPath() string { return u.IndexedDirForkPath(self.Path) }
+func (self ConvDir) ForkPath() string {
+	return u.IndexedDirForkPath(self.Path)
+}
 
 /*
-Side-effectful initialization.
-Should be performed after `.Read`.
-TODO better name.
+TODO consider: instead of continuing from the last file (using all files),
+continue from the last file before the first "hole" in file indexes. Could
+be useful for edge cases like pre-creating a conversation template.
 */
-func (self *ConvDir) InitFiles(funs Functions) {
-	self.EvalMessages(funs)
-	self.InitNextMessagePlaceholder()
+func (self ConvDir) ChatCompletionRequest() (out ChatCompletionRequest) {
+	self.ReadRequestTemplate(&out)
+	out.Default()
+	out.Messages = self.ValidMessages()
+
+	{
+		name := self.IndexedFileNameForNextRequest()
+		if gg.IsNotZero(name) {
+			out.DecodeFrom(name, self.ReadIndexedFile(name))
+		}
+	}
+	return
 }
 
-func (self *ConvDir) EvalMessages(funs Functions) {
-	msgs := self.Messages
-	last := gg.Last(msgs)
-	if last.NextMessage == nil {
-		return
+/*
+Converts "conversation files" into messages by merging each group of identically
+indexed files, resulting in one message per group. For example, if there are
+two files like this: `0001_user_message.md` and `0001_user_message.yaml`, both
+files will be merged into one message, where the content comes from `.md`
+as-is, and some other fields may be set from the `.yaml` file, which would be
+interpreted as the YAML encoding of the `ChatCompletionMessage` type. We
+support some other formats as well.
+*/
+func (self ConvDir) ValidMessages() (out []ChatCompletionMessage) {
+	var prev IndexedFileName
+	var msg ChatCompletionMessage
+
+	for _, next := range self.IndexedFileNames() {
+		if !next.IsMessage() {
+			continue
+		}
+
+		if gg.IsZero(prev) {
+			prev = next
+			msg.DecodeFrom(next, self.ReadIndexedFile(next))
+			continue
+		}
+
+		if prev.Index != next.Index {
+			gg.Append(&out, msg)
+			gg.PtrClear(&msg)
+			msg.DecodeFrom(next, self.ReadIndexedFile(next))
+			continue
+		}
+
+		msg.DecodeFrom(next, self.ReadIndexedFile(next))
 	}
 
-	next := *last.NextMessage
-	if next.HasInternalFunctionCall() {
-		next.Content = funs.Response(next.Name, next.Arguments.String(), self.Verbose)
+	if gg.IsNotZero(msg) {
+		gg.Append(&out, msg)
 	}
-
-	next.Validate()
-	self.WriteNextMessage(next)
+	return
 }
 
-func (self *ConvDir) InitNextMessagePlaceholder() {
-	if gg.IsEmpty(self.Messages) {
-		self.WriteNextMessagePlaceholder()
+func (self ConvDir) IndexedFileNameForNextRequest() (_ IndexedFileName) {
+	return gg.Find(self.LastIndexedFileNameGroup(), IndexedFileName.IsRequest)
+}
+
+func (self ConvDir) NextIndex() uint {
+	src := self.LastIndexedFileName()
+	if gg.IsNotZero(src) {
+		return src.Index + 1
 	}
+	return src.Index
 }
 
-func (self ConvDir) ValidMessages() []ChatCompletionMessage {
-	return gg.MapCompact(self.Messages, ChatCompletionMessageExt.ValidChatCompletionMessage)
+func (self ConvDir) LastIndex() uint {
+	return self.LastIndexedFileName().Index
 }
 
-func (self ConvDir) ChatCompletionRequest() ChatCompletionRequest {
-	tar := self.ReqTemplate.Val
-	tar.Default()
-	tar.Messages = self.ValidMessages()
-	return tar
+func (self ConvDir) LastIndexedFileName() (out IndexedFileName) {
+	src := gg.Last(self.IndexedFileNameCandidates())
+	if gg.IsNotZero(src) {
+		gg.Try(out.Parse(src))
+	}
+	return
+}
+
+func (self ConvDir) LastIndexedFileNameGroup() []IndexedFileName {
+	src := self.IndexedFileNames()
+	ind := gg.Last(src).Index
+	return gg.TakeLastWhile(src, func(val IndexedFileName) bool {
+		return val.Index == ind
+	})
+}
+
+func (self ConvDir) LastMessage() (out ChatCompletionMessage) {
+	for _, name := range self.LastIndexedFileNameGroup() {
+		if name.IsMessage() {
+			out.DecodeFrom(name, self.ReadIndexedFile(name))
+		}
+	}
+	return
 }
 
 func (self ConvDir) WriteRequestLatest(src ChatCompletionRequest) {
-	u.JsonEncodeFile(self.RequestLatestPathJson(), src)
+	u.PolyEncodeFileOpt(self.RequestLatestPathJson(), src)
 }
 
-func (self *ConvDir) WriteResponseJson(src []byte) {
+func (self ConvDir) ReadResponseJson() []byte {
+	return gg.ReadFile[[]byte](self.ResponseLatestPathJson())
+}
+
+func (self ConvDir) WriteResponseJson(src []byte) {
 	u.WriteFile(self.ResponseLatestPathJson(), u.JsonPretty(src))
 }
 
-func (self *ConvDir) WriteResponseEncoded(res ChatCompletionResponse) {
+func (self ConvDir) WriteResponseEncoded(src ChatCompletionResponse) {
 	out := self.ResponseLatestPath()
 
 	// Assumes that `ConvDir.WriteResponseJson` is called earlier.
@@ -173,50 +271,44 @@ func (self *ConvDir) WriteResponseEncoded(res ChatCompletionResponse) {
 	// generated by decoding and then encoding again. The original
 	// has more information, such as fields not listed in our types.
 	if out != self.ResponseLatestPathJson() {
-		u.PolyEncodeFileOpt(out, res)
+		u.PolyEncodeFileOpt(out, src)
 	}
 }
 
-// Intended for error paths.
-func (self *ConvDir) WriteNextMessagePlaceholderOrSkip() {
+// Intended to be called during panic handling, like via `u.Fail0`.
+func (self ConvDir) WriteNextMessagePlaceholderOrSkip() {
 	defer gg.Skip()
 	self.WriteNextMessagePlaceholder()
 }
 
-func (self *ConvDir) WriteNextMessagePlaceholder() {
-	var tar ChatCompletionMessageExt
-	tar.Role = ChatMessageRoleUser
-	self.WriteNextMessage(tar)
+func (self ConvDir) WriteNextMessagePlaceholder() {
+	var msg ChatCompletionMessage
+	msg.Role = ChatMessageRoleUser
+	self.WriteNextMessage(msg)
 }
 
-func (self *ConvDir) WriteNextMessageFunctionResponse(name FunctionName, body string) {
-	var tar ChatCompletionMessageExt
-	tar.Role = ChatMessageRoleFunction
-	tar.Name = name
-	tar.Content = body
-	self.WriteNextMessage(tar)
+func (self ConvDir) WriteNextMessageFunctionResponse(name FunctionName, body string) {
+	var msg ChatCompletionMessage
+	msg.Role = ChatMessageRoleFunction
+	msg.Name = name
+	msg.Content = body
+	self.WriteNextMessage(msg)
 }
 
-func (self *ConvDir) WriteNextMessageFunctionResponsePlaceholder(src FunctionCall) {
+func (self ConvDir) WriteNextMessageFunctionResponsePlaceholder(src FunctionCall) {
 	self.WriteNextMessageFunctionResponse(src.Name, ``)
 }
 
-func (self *ConvDir) WriteNextMessage(src ChatCompletionMessageExt) {
-	ext, body := src.ExtBody()
+func (self ConvDir) WriteNextMessage(msg ChatCompletionMessage) {
+	ext, body := msg.ExtBody()
 
-	var tar IndexedMessageFileName
-	tar.Index = self.NextIndex()
-	tar.Role = src.Role
-	tar.Ext = ext
+	var name IndexedFileName
+	name.Index = self.NextIndex()
+	name.Role = msg.Role
+	name.Type = IndexedFileTypeMessage
+	name.Ext = ext
 
-	src.FileName = tar
-
-	u.WriteFileRec(self.PathJoin(tar.ValidString()), body)
-	gg.Append(&self.Messages, src)
-}
-
-func (self ConvDir) NextIndex() uint {
-	return gg.NumConv[uint](len(self.Messages))
+	self.WriteIndexedFile(name, body)
 }
 
 func (self ConvDir) LogWriteErr(err error) {
@@ -230,6 +322,11 @@ func (self ConvDir) LogWriteErr(err error) {
 }
 
 func (self ConvDir) WriteErr(err error) {
+	if err == nil {
+		u.RemoveFileOrDirOrSkip(self.ErrorPath())
+		return
+	}
+
 	u.FileWrite{
 		Path:  self.ErrorPath(),
 		Body:  gg.ToBytes(u.FormatVerbose(err)),
@@ -237,34 +334,28 @@ func (self ConvDir) WriteErr(err error) {
 	}.Run()
 }
 
-func (self ConvDir) HasIntermediateMessage(name IndexedMessageFileName) bool {
+func (self ConvDir) CanTruncAfter(name IndexedFileName) bool {
 	return gg.IsNotZero(name) &&
-		gg.Some(gg.Init(self.Messages), func(val ChatCompletionMessageExt) bool {
-			return val.FileName == name
+		gg.Some(self.IndexedFileNames(), func(val IndexedFileName) bool {
+			return val.Index > name.Index
 		})
 }
 
-func (self *ConvDir) TruncMessagesAndFilesAfterIndexedMessageFileName(name IndexedMessageFileName) {
-	if !self.HasIntermediateMessage(name) {
+func (self ConvDir) TruncAfter(name IndexedFileName) {
+	if gg.IsZero(name) {
 		return
 	}
 
 	if self.Verb {
-		log.Printf(`truncating messages after %q`, name)
+		log.Printf(`truncating %q by deleting indexed files after index %v`, self.Path, name.IndexString())
 	}
 
-	for gg.IsNotEmpty(self.Messages) {
-		msg := gg.Last(self.Messages)
-		msgName := msg.FileName
-		if msgName == name {
-			return
-		}
-
+	for _, truncName := range gg.Reversed(gg.TakeLastWhile(self.IndexedFileNames(), func(val IndexedFileName) bool {
+		return val.Index > name.Index
+	})) {
 		if self.Verb {
-			log.Printf(`removing message %q`, msgName)
+			log.Printf(`deleting file %q`, truncName)
 		}
-
-		u.RemoveFileOrDir(self.PathJoin(msgName.String()))
-		self.Messages = gg.Init(self.Messages)
+		self.DeleteIndexedFile(truncName)
 	}
 }

@@ -37,7 +37,7 @@ func (self FileWrite) Run() {
 			break
 
 		case FileWriteEmptyDelete:
-			RemoveFileOrDirOpt(self.Path)
+			RemoveFileOrDirOrSkip(self.Path)
 			return
 
 		case FileWriteEmptyTrunc:

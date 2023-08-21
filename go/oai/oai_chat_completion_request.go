@@ -1,6 +1,8 @@
 package oai
 
 import (
+	"_/go/u"
+
 	"github.com/mitranim/gg"
 )
 
@@ -34,4 +36,8 @@ func (self *ChatCompletionRequest) Merge(src any) {
 	if src != nil {
 		gg.JsonDecode(gg.JsonString(src), self)
 	}
+}
+
+func (self *ChatCompletionRequest) DecodeFrom(name IndexedFileName, body []byte) {
+	u.PolyDecode(body, self, name.Ext)
 }

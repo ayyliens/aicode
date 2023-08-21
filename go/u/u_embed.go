@@ -1,6 +1,10 @@
 package u
 
-import "path/filepath"
+import (
+	"path/filepath"
+
+	"github.com/mitranim/gg"
+)
 
 type Pathed struct {
 	Path string `flag:"--path" desc:"path to use/run/watch" json:"path,omitempty" yaml:"path,omitempty" toml:"path,omitempty"`
@@ -8,6 +12,22 @@ type Pathed struct {
 
 func (self Pathed) PathJoin(path string) string {
 	return filepath.Join(self.Path, path)
+}
+
+func (self Pathed) HasFile(name string) bool {
+	return gg.FileExists(self.PathJoin(name))
+}
+
+func (self Pathed) ReadFile(name string) []byte {
+	return gg.ReadFile[[]byte](self.PathJoin(name))
+}
+
+func (self Pathed) WriteFile(name string, body []byte) {
+	gg.WriteFile(self.PathJoin(name), body)
+}
+
+func (self Pathed) DeleteFile(name string) {
+	RemoveFileOrDir(self.PathJoin(name))
 }
 
 type Verbose struct {

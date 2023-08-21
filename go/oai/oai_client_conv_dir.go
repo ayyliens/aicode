@@ -17,14 +17,20 @@ TODO:
 
 	* Support simultaneously watching and operating on multiple directories.
 		The user should watch an "ancestor" dir, and we should operate on all
-		nested directories that appear to be "conv" dirs.
+		nested directories that appear to be "conv" dirs. Motives:
+
+			* Bot can be slow. Operator may work on multiple unrelated directories at
+			  once to minimize waiting.
+
+		  * May allow easy switching between different forks of the same directory.
 */
 type ClientConvDir struct {
 	ClientCommon
-	Trunc     bool      `flag:"--trunc" desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty" yaml:"trunc,omitempty" toml:"trunc,omitempty"`
-	Fork      bool      `flag:"--fork"  desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"  yaml:"fork,omitempty"  toml:"fork,omitempty"`
-	Dry       bool      `flag:"--dry"   desc:"dry run: no request to external API"                              json:"dry,omitempty"   yaml:"dry,omitempty"   toml:"dry,omitempty"`
-	Functions Functions `json:"-" yaml:"-" toml:"-"`
+	Trunc              bool      `flag:"--trunc"                desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty"              yaml:"trunc,omitempty"              toml:"trunc,omitempty"`
+	Fork               bool      `flag:"--fork"                 desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"               yaml:"fork,omitempty"               toml:"fork,omitempty"`
+	Dry                bool      `flag:"--dry"                  desc:"dry run: no request to external API"                              json:"dry,omitempty"                yaml:"dry,omitempty"                toml:"dry,omitempty"`
+	ReadResponseLatest bool      `flag:"--read-response-latest" desc:"instead of actual HTTP request, read last response from disk"     json:"readResponseLatest,omitempty" yaml:"readResponseLatest,omitempty" toml:"readResponseLatest,omitempty"`
+	Functions          Functions `json:"-" yaml:"-" toml:"-"`
 }
 
 func (self ClientConvDir) Run(ctx u.Ctx) {
@@ -37,6 +43,7 @@ func (self ClientConvDir) Run(ctx u.Ctx) {
 
 func (self ClientConvDir) RunWatch(ctx u.Ctx) {
 	self.InitBackupOpt()
+	self.InitNextMessagePlaceholderOpt()
 
 	var wat u.Watcher[ClientConvDir]
 	wat.Runner = self
@@ -54,10 +61,12 @@ func (self ClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 }
 
 func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
-	dir := self.OaiConvDirRead()
-	defer gg.Finally(dir.LogWriteErr)
+	dir := self.ConvDir()
 
-	if gg.IsEmpty(dir.Messages) {
+	defer gg.Finally(dir.LogWriteErr)
+	dir.WriteErr(nil)
+
+	if !dir.HasIndexedFiles() {
 		if self.Verb {
 			log.Println(`no messages found, creating placeholder`)
 		}
@@ -66,21 +75,21 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	}
 
 	if eve != nil && eve.Event() == notify.Write {
-		baseName := IndexedMessageFileNameOpt(filepath.Base(u.NotifyEventPath(eve)))
+		indexedName := ParseIndexedFileNameOpt(filepath.Base(u.NotifyEventPath(eve)))
 
-		if dir.HasIntermediateMessage(baseName) {
+		if dir.CanTruncAfter(indexedName) {
 			if self.Fork {
 				self.ForkFromBackup(dir.ForkPath())
 			}
 			if self.Trunc {
-				dir.TruncMessagesAndFilesAfterIndexedMessageFileName(baseName)
+				dir.TruncAfter(indexedName)
 			}
 		}
 	}
 
 	dir.InitFiles(self.Functions)
 
-	msg := gg.Last(dir.Messages)
+	msg := dir.LastMessage()
 	skip := msg.SkipReason()
 	if gg.IsNotZero(skip) {
 		if self.Verb {
@@ -97,7 +106,6 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	}
 
 	req := dir.ChatCompletionRequest()
-	req.Merge(msg.RequestTemplate)
 	dir.WriteRequestLatest(req)
 
 	if self.Dry {
@@ -107,17 +115,16 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
-	resBody := self.VerbChatCompletionBody(ctx, req)
+	resBody := self.VerbChatCompletionBody(ctx, req, dir)
 	dir.WriteResponseJson(resBody)
 
 	res := gg.JsonDecodeTo[ChatCompletionResponse](resBody)
-	dir.ResLatest.Set(res)
 	dir.WriteResponseEncoded(res)
 
 	choice := res.ChatCompletionChoice()
 	choice.FinishReason.Validate()
 
-	msg = choice.ChatCompletionMessage().ChatCompletionMessageExt()
+	msg = choice.ChatCompletionMessage()
 	msg.Validate()
 
 	dir.WriteNextMessage(msg)
@@ -160,17 +167,22 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 	}
 }
 
-func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest) []byte {
+func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest, dir ConvDir) []byte {
+	if self.ReadResponseLatest {
+		if self.Verb {
+			log.Printf(`reusing last response from disk (flag "--read-response-latest"), path %q`, dir.ResponseLatestPathJson())
+		}
+		return dir.ReadResponseJson()
+	}
 	if self.Verb {
 		defer gg.LogTimeNow(`chat completion request`).LogStart().LogEnd()
 	}
 	return self.ChatCompletionBody(ctx, req)
 }
 
-func (self *ClientConvDir) OaiConvDirRead() (out ConvDir) {
+func (self ClientConvDir) ConvDir() (out ConvDir) {
 	out.Path = self.Path
 	out.Verbose = self.Verbose
-	out.Read()
 	return
 }
 
@@ -197,7 +209,7 @@ func (self ClientConvDir) InitBackup() {
 		log.Printf(`creating backup of directory %q at %q for forking`, src, tar)
 	}
 
-	u.RemoveFileOrDirOpt(tar)
+	u.RemoveFileOrDirOrSkip(tar)
 	u.CopyDirRec(src, tar)
 }
 
@@ -209,6 +221,18 @@ func (self ClientConvDir) ForkFromBackup(tar string) {
 	u.CopyDirRec(src, tar)
 }
 
+/*
+This operation should be done only in watch mode without `.Init`. When flag
+`.Init` is set, we perform this on the initial run, which also has other
+potential side effects.
+*/
+func (self ClientConvDir) InitNextMessagePlaceholderOpt() {
+	if !self.Init {
+		dir := self.ConvDir()
+		dir.InitNextMessagePlaceholder()
+	}
+}
+
 // Implement `u.FsEventSkipper`.
 func (self ClientConvDir) ShouldSkipFsEvent(eve notify.EventInfo) bool {
 	if eve == nil {
@@ -217,6 +241,6 @@ func (self ClientConvDir) ShouldSkipFsEvent(eve notify.EventInfo) bool {
 
 	name := filepath.Base(eve.Path())
 
-	return !IsIndexedMessageFileNameLax(name) &&
+	return !IsIndexedFileNameLax(name) &&
 		u.BaseNameWithoutExt(name) != BaseNameRequestTemplate
 }

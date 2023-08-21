@@ -21,9 +21,10 @@ Be cautious: files in target directory may be overwritten with no recovery.
 */
 type CmdOaiConvDir struct {
 	oai.ClientConvDir
-	SrcPath string `flag:"--src-path" desc:"directory path for reading source files"`
-	OutPath string `flag:"--out-path" desc:"directory path for writing output files"`
-	Funcs   bool   `flag:"--funcs"    desc:"automatically run supported functions"`
+	SrcPath  string `flag:"--src-path"  desc:"directory path for reading source files"`
+	OutPath  string `flag:"--out-path"  desc:"directory path for writing output files"`
+	OutClear bool   `flag:"--out-clear" desc:"clear output before writing files"`
+	Funcs    bool   `flag:"--funcs"     desc:"automatically run supported functions"`
 }
 
 func (self CmdOaiConvDir) RunCli() {
@@ -44,7 +45,10 @@ func (self CmdOaiConvDir) Run() {
 		}
 
 		if gg.IsNotZero(self.OutPath) {
-			self.Functions.Add(`write_files`, FunctionWriteFiles{Path: self.OutPath})
+			self.Functions.Add(`write_files`, FunctionWriteFiles{
+				Path:  self.OutPath,
+				Clear: self.OutClear,
+			})
 		}
 	}
 

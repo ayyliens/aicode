@@ -7,17 +7,21 @@ import (
 	"github.com/mitranim/gg"
 )
 
-/*
-Implements `oai.OaiFunction` for writing files.
-
-TODO support option to replace ALL files in target directory.
-*/
-type FunctionWriteFiles struct{ Path string }
+// Implements `oai.OaiFunction` for writing files.
+type FunctionWriteFiles struct {
+	Path  string
+	Clear bool // Clear output directory before writing.
+}
 
 var _ = oai.OaiFunction(gg.Zero[FunctionWriteFiles]())
 
 func (self FunctionWriteFiles) OaiCall(src string) (_ string) {
 	inp := gg.JsonDecodeTo[FunctionWriteFilesInp](src)
+
+	if self.Clear {
+		u.RemoveAllOrSkip(self.Path)
+	}
+
 	for _, file := range inp.Files {
 		file.WriteTo(self.Path)
 	}

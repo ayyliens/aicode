@@ -1,0 +1,6 @@
+type: message
+function_call:
+  name: read_files
+  arguments:
+    paths:
+      - xln.go

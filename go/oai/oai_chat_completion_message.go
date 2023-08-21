@@ -7,6 +7,11 @@ import (
 	"github.com/mitranim/gg"
 )
 
+const (
+	ChatCompletionMessageDefaultExtForText = `.md`
+	ChatCompletionMessageDefaultExtForData = `.yaml`
+)
+
 /*
 Note: due to issues/limitations of OpenAI JSON API, we have to use `name` with
 `,omitempty` but `content` without `,omitempty`.
@@ -78,9 +83,21 @@ func (self ChatCompletionMessage) HasFunctionSomething() bool {
 // TODO more configurable.
 func (self ChatCompletionMessage) Ext() string {
 	if self.HasFunctionSomething() {
-		return `.yaml`
+		return ChatCompletionMessageDefaultExtForData
 	}
-	return `.md`
+	return ChatCompletionMessageDefaultExtForText
+}
+
+/*
+TODO better name.
+TODO more configurable.
+*/
+func (self ChatCompletionMessage) ExtBody() (string, []byte) {
+	ext := self.Ext()
+	if ext == ChatCompletionMessageDefaultExtForText {
+		return ext, gg.ToBytes(self.Content)
+	}
+	return ext, u.PolyEncode[[]byte](self, ext)
 }
 
 func (self ChatCompletionMessage) SkipReason() (_ string) {
@@ -103,7 +120,15 @@ func (self ChatCompletionMessage) SkipReason() (_ string) {
 	return
 }
 
-func (self ChatCompletionMessage) ChatCompletionMessageExt() (out ChatCompletionMessageExt) {
-	out.ChatCompletionMessage = self
-	return
+func (self *ChatCompletionMessage) DecodeFrom(name IndexedFileName, body []byte) {
+	self.Role = name.Role
+
+	switch name.Ext {
+	case ``, `.txt`, `.md`:
+		self.Content = gg.ToString(body)
+		return
+	}
+
+	u.PolyDecode(body, self, name.Ext)
+	ChatMessageRoleValidateMatch(name.String(), self.Role, name.Role)
 }
