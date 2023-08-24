@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -415,10 +416,6 @@ func StringPadPrefix(src string, char rune, count int) string {
 	return buf.String()
 }
 
-func NumToPaddedString[A gg.Num](src A) string {
-	return StringPadPrefix(gg.String(src), '0', 4)
-}
-
 func FormatVerbose(src any) string {
 	if src == nil {
 		return ``
@@ -571,4 +568,39 @@ func PathJoinAbs(base, tar string) string {
 
 func AdjoinCompact[Slice ~[]Elem, Elem comparable](tar Slice, src ...Elem) Slice {
 	return gg.Compact(gg.Adjoin(tar, src...))
+}
+
+// TODO move to `gg`.
+func FormatInt[A gg.Int](src A, radix byte) string {
+	if src > 0 {
+		return strconv.FormatUint(gg.NumConv[uint64](src), int(radix))
+	}
+	return strconv.FormatInt(gg.NumConv[int64](src), int(radix))
+}
+
+/*
+Determines how many digits must be used to string-encode a given integer in the
+given radix. At the time of writing, the largest integers in Go are 64-bit,
+which requires no more than 65 characters in radix 2 (1 sign and 64 digits),
+and even less in any other radix.
+
+TODO move to `gg`.
+*/
+func IntStringDigitCount[A gg.Int](src A, radix byte) (out byte) {
+	if !(radix >= 2) {
+		panic(gg.Errf(`invalid radix %v for numeric encoding`, radix))
+	}
+
+	if src < 0 {
+		out++
+	}
+
+	for {
+		out++
+		src /= A(radix)
+		// Note: integer division truncates the remainder, eventually producing 0.
+		if src == 0 {
+			return
+		}
+	}
 }

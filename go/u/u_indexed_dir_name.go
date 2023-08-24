@@ -54,7 +54,7 @@ Implements parsing and encoding of directory names with optional indexes:
 */
 type IndexedDirName struct {
 	Base  string
-	Index gg.Opt[uint]
+	Index gg.Opt[FileIndex]
 }
 
 func (self IndexedDirName) String() (_ string) {
@@ -64,9 +64,7 @@ func (self IndexedDirName) String() (_ string) {
 	return self.Base + `_` + self.IndexString()
 }
 
-func (self IndexedDirName) IndexString() string {
-	return NumToPaddedString(self.Index.Val)
-}
+func (self IndexedDirName) IndexString() string { return self.Index.String() }
 
 func (self *IndexedDirName) Parse(src string) error {
 	gg.PtrClear(self)
@@ -85,13 +83,16 @@ func (self *IndexedDirName) Parse(src string) error {
 
 /*
 Note: the amount of digits must be fixed. See the comment on
-`ReIndexedMessageFileNameStrict` for an explanation.
+`FileIndex.StringDigitCount` for an explanation.
+
+TODO: derive digit count from `FileIndex.StringDigitCount` instead of
+copy-pasting / hardcoding.
 */
 var ReIndexedDirName = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`(.*)_(\d{4})?$`)
 })
 
-func (self IndexedDirName) GetIndex() uint { return self.Index.Val }
+func (self IndexedDirName) GetIndex() FileIndex { return self.Index.Val }
 
 func (self IndexedDirName) Less(val IndexedDirName) bool {
 	if self.Index.IsNull() && !val.Index.IsNull() {

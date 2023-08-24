@@ -29,7 +29,7 @@ Example names:
 	0002_function_msg.yaml
 */
 type IndexedFileName struct {
-	Index uint
+	Index u.FileIndex
 	Role  ChatMessageRole
 	Type  IndexedFileType
 	Ext   string
@@ -84,15 +84,10 @@ func (self IndexedFileName) ValidString() string {
 	return out
 }
 
-func (self IndexedFileName) IndexString() string {
-	// TODO ensure the amount of digits will always remain consistent with the
-	// regexp. May consider parsing it out of the regexp.
-	return u.NumToPaddedString(self.Index)
-}
-
-func (self IndexedFileName) IsMessage() bool { return self.Type == IndexedFileTypeMessage }
-func (self IndexedFileName) IsRequest() bool { return self.Type == IndexedFileTypeRequest }
-func (self IndexedFileName) IsEval() bool    { return self.Type == IndexedFileTypeEval }
+func (self IndexedFileName) IndexString() string { return self.Index.String() }
+func (self IndexedFileName) IsMessage() bool     { return self.Type == IndexedFileTypeMessage }
+func (self IndexedFileName) IsRequest() bool     { return self.Type == IndexedFileTypeRequest }
+func (self IndexedFileName) IsEval() bool        { return self.Type == IndexedFileTypeEval }
 
 func (self *IndexedFileName) Parse(src string) (err error) {
 	defer gg.Rec(&err)
@@ -171,12 +166,8 @@ var ReIndexedFileNameLax = gg.NewLazy(func() *regexp.Regexp {
 })
 
 /*
-Note: the amount of digits that denote the index should be fixed, to ensure that
-ordering file names by the common string-sorting algorithm is identical to
-ordering file names by the indexes as integers (assuming no duplicate indexes).
-We COULD internally order by parsed indexes, but we also want to ensure that
-files are ordered the same way in all FS browsers, including the OS built-ins
-and file lists in code editors, which requires a fixed digit count.
+TODO: derive digit count from `FileIndex.StringDigitCount` instead of
+copy-pasting / hardcoding.
 */
 var ReIndexedFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
 	return regexp.MustCompile(`^(?P<index>\d{4})_(?P<role>[a-z][a-z\d]*)_(?P<type>[a-z][a-z\d]*)(?P<ext>[.][a-z]+)?$`)

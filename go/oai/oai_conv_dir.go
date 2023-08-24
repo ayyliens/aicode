@@ -214,7 +214,7 @@ func (self ConvDir) IndexedFileNameForNextRequest() (_ IndexedFileName) {
 	return gg.Find(self.LastIndexedFileNameGroup(), IndexedFileName.IsRequest)
 }
 
-func (self ConvDir) NextIndex() uint {
+func (self ConvDir) NextIndex() u.FileIndex {
 	src := self.LastIndexedFileName()
 	if gg.IsNotZero(src) {
 		return src.Index + 1
@@ -222,7 +222,7 @@ func (self ConvDir) NextIndex() uint {
 	return src.Index
 }
 
-func (self ConvDir) LastIndex() uint {
+func (self ConvDir) LastIndex() u.FileIndex {
 	return self.LastIndexedFileName().Index
 }
 
@@ -334,24 +334,22 @@ func (self ConvDir) WriteErr(err error) {
 	}.Run()
 }
 
-func (self ConvDir) CanTruncAfter(name IndexedFileName) bool {
-	return gg.IsNotZero(name) &&
-		gg.Some(self.IndexedFileNames(), func(val IndexedFileName) bool {
-			return val.Index > name.Index
-		})
+func (self ConvDir) CanTruncAfter(ind u.FileIndex) bool {
+	return gg.Some(self.IndexedFileNames(), func(val IndexedFileName) bool {
+		return val.Index > ind
+	})
 }
 
-func (self ConvDir) TruncAfter(name IndexedFileName) {
-	if gg.IsZero(name) {
-		return
-	}
-
+func (self ConvDir) TruncAfter(ind u.FileIndex) {
 	if self.Verb {
-		log.Printf(`truncating %q by deleting indexed files after index %v`, self.Path, name.IndexString())
+		log.Printf(
+			`truncating %q by deleting indexed files after index %v`,
+			self.Path, ind,
+		)
 	}
 
 	for _, truncName := range gg.Reversed(gg.TakeLastWhile(self.IndexedFileNames(), func(val IndexedFileName) bool {
-		return val.Index > name.Index
+		return val.Index > ind
 	})) {
 		if self.Verb {
 			log.Printf(`deleting file %q`, truncName)

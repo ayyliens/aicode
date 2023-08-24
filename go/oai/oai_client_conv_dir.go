@@ -26,11 +26,12 @@ TODO:
 */
 type ClientConvDir struct {
 	ClientCommon
-	Trunc              bool      `flag:"--trunc"                desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty"              yaml:"trunc,omitempty"              toml:"trunc,omitempty"`
-	Fork               bool      `flag:"--fork"                 desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"               yaml:"fork,omitempty"               toml:"fork,omitempty"`
-	Dry                bool      `flag:"--dry"                  desc:"dry run: no request to external API"                              json:"dry,omitempty"                yaml:"dry,omitempty"                toml:"dry,omitempty"`
-	ReadResponseLatest bool      `flag:"--read-response-latest" desc:"instead of actual HTTP request, read last response from disk"     json:"readResponseLatest,omitempty" yaml:"readResponseLatest,omitempty" toml:"readResponseLatest,omitempty"`
-	Functions          Functions `json:"-" yaml:"-" toml:"-"`
+	Trunc              bool                `flag:"--trunc"                desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty"              yaml:"trunc,omitempty"              toml:"trunc,omitempty"`
+	Fork               bool                `flag:"--fork"                 desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"               yaml:"fork,omitempty"               toml:"fork,omitempty"`
+	TruncAfter         gg.Opt[u.FileIndex] `flag:"--trunc-after"          desc:"always truncate files after given index (best with --fork)"       json:"truncAfter,omitempty"         yaml:"truncAfter,omitempty"         toml:"truncAfter,omitempty"`
+	Dry                bool                `flag:"--dry"                  desc:"dry run: no request to external API"                              json:"dry,omitempty"                yaml:"dry,omitempty"                toml:"dry,omitempty"`
+	ReadResponseLatest bool                `flag:"--read-response-latest" desc:"instead of actual HTTP request, read last response from disk"     json:"readResponseLatest,omitempty" yaml:"readResponseLatest,omitempty" toml:"readResponseLatest,omitempty"`
+	Functions          Functions           `json:"-" yaml:"-" toml:"-"`
 }
 
 func (self ClientConvDir) Run(ctx u.Ctx) {
@@ -74,16 +75,13 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
-	if eve != nil && eve.Event() == notify.Write {
-		indexedName := ParseIndexedFileNameOpt(filepath.Base(u.NotifyEventPath(eve)))
-
-		if dir.CanTruncAfter(indexedName) {
-			if self.Fork {
-				self.ForkFromBackup(dir.ForkPath())
-			}
-			if self.Trunc {
-				dir.TruncAfter(indexedName)
-			}
+	truncIndex, trunc := self.ShouldTruncAfter(eve)
+	if trunc && dir.CanTruncAfter(truncIndex) {
+		if self.Fork {
+			self.ForkFromBackup(dir.ForkPath())
+		}
+		if self.Trunc {
+			dir.TruncAfter(truncIndex)
 		}
 	}
 
@@ -154,7 +152,10 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 
 	if gg.IsZero(out) {
 		if self.Verb {
-			log.Printf(`function response is empty; preferring manual text response to avoid confusing the bot`)
+			log.Printf(
+				`empty response from function %q; avoiding automatic function response to avoid confusing the bot; preferring manual text response`,
+				call.Name,
+			)
 		}
 		dir.WriteNextMessagePlaceholder()
 		return
@@ -243,4 +244,19 @@ func (self ClientConvDir) ShouldSkipFsEvent(eve notify.EventInfo) bool {
 
 	return !IsIndexedFileNameLax(name) &&
 		u.BaseNameWithoutExt(name) != BaseNameRequestTemplate
+}
+
+func (self ClientConvDir) ShouldTruncAfter(eve notify.EventInfo) (_ u.FileIndex, _ bool) {
+	if self.TruncAfter.IsNotNull() {
+		return self.TruncAfter.Val, true
+	}
+
+	if eve != nil && eve.Event() == notify.Write {
+		name := ParseIndexedFileNameOpt(filepath.Base(u.NotifyEventPath(eve)))
+		if gg.IsNotZero(name) {
+			return name.Index, true
+		}
+	}
+
+	return
 }

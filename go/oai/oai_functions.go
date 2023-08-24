@@ -49,7 +49,7 @@ func (self Functions) Response(name FunctionName, arg string, verb u.Verbose) (_
 	fun := self.Get(name)
 	if fun == nil {
 		if verb.Verb {
-			log.Printf(`found no registered function %q, function response is empty`, name)
+			log.Printf(`found no registered function %q; we consider this equivalent to empty function response`, name)
 		}
 		return
 	}

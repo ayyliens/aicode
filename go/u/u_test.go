@@ -2,6 +2,7 @@ package u_test
 
 import (
 	"_/go/u"
+	"math"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -83,4 +84,70 @@ func Test_filepath_Join_appending_absolute_path(t *testing.T) {
 		tar,
 		`/tmp/os_temp_dir/tool_name/one/two/three`,
 	)
+}
+
+func Test_IntStringDigitCount(t *testing.T) {
+	defer gtest.Catch(t)
+
+	gtest.PanicStr(
+		`invalid radix 0 for numeric encoding`,
+		func() { u.IntStringDigitCount[byte](234, 0) },
+	)
+
+	gtest.PanicStr(
+		`invalid radix 1 for numeric encoding`,
+		func() { u.IntStringDigitCount[byte](234, 1) },
+	)
+
+	testIntStringDigitCount[byte](0, 10, 1)
+	testIntStringDigitCount[byte](1, 10, 1)
+	testIntStringDigitCount[byte](2, 10, 1)
+	testIntStringDigitCount[byte](9, 10, 1)
+	testIntStringDigitCount[byte](10, 10, 2)
+	testIntStringDigitCount[byte](99, 10, 2)
+	testIntStringDigitCount[byte](100, 10, 3)
+	testIntStringDigitCount[byte](255, 10, 3)
+
+	testIntStringDigitCount[int8](0, 10, 1)
+	testIntStringDigitCount[int8](1, 10, 1)
+	testIntStringDigitCount[int8](2, 10, 1)
+	testIntStringDigitCount[int8](9, 10, 1)
+	testIntStringDigitCount[int8](10, 10, 2)
+	testIntStringDigitCount[int8](99, 10, 2)
+	testIntStringDigitCount[int8](100, 10, 3)
+	testIntStringDigitCount[int8](127, 10, 3)
+	testIntStringDigitCount[int8](-1, 10, 2)
+	testIntStringDigitCount[int8](-9, 10, 2)
+	testIntStringDigitCount[int8](-10, 10, 3)
+	testIntStringDigitCount[int8](-99, 10, 3)
+	testIntStringDigitCount[int8](-100, 10, 4)
+	testIntStringDigitCount[int8](-128, 10, 4)
+
+	testIntStringDigitCount[uint64](math.MaxUint64, 2, 64)
+	testIntStringDigitCount[uint64](math.MaxUint64, 10, 20)
+	testIntStringDigitCount[uint64](math.MaxUint64, 16, 16)
+	testIntStringDigitCount[uint64](math.MaxUint64, 32, 13)
+
+	testIntStringDigitCount[int64](math.MaxInt64, 2, 63)
+	testIntStringDigitCount[int64](math.MaxInt64, 10, 19)
+	testIntStringDigitCount[int64](math.MaxInt64, 16, 16)
+	testIntStringDigitCount[int64](math.MaxInt64, 32, 13)
+	testIntStringDigitCount[int64](math.MinInt64, 2, 65)
+	testIntStringDigitCount[int64](math.MinInt64, 10, 20)
+	testIntStringDigitCount[int64](math.MinInt64, 16, 17)
+	testIntStringDigitCount[int64](math.MinInt64, 32, 14)
+}
+
+func testIntStringDigitCount[A gg.Int](src A, rad, exp byte) {
+	str := u.FormatInt(src, rad)
+
+	msg := gg.JoinLinesOpt(
+		gg.Str(`type: `, gg.Type[A]()),
+		gg.Str(`number: `, src),
+		gg.Str(`radix: `, rad),
+		gg.Str(`encoded: `, str),
+	)
+
+	gtest.Eq(u.IntStringDigitCount(src, rad), exp, msg)
+	gtest.Eq(len(str), int(exp), msg)
 }

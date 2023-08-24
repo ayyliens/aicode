@@ -57,14 +57,18 @@ value, without concurrency hazards.
 */
 func (self Watcher[_]) Run(ctx Ctx) {
 	self.normIgnore()
-	self.runInitOpt(ctx)
 
 	// Technical note: file events are async. At the time of writing, on the
-	// author's system (MacOS), the event from creating a file or directory,
-	// triggered BEFORE we start watching, can and does arrive AFTER we start
-	// watching, causing an immediate rerun in our FS event loop. This may vary
-	// by OS.
-	self.touch()
+	// author's system (MacOS), it's possible to execute FS operations, THEN
+	// start watching, then receive FS events triggered by those FS operations,
+	// causing an immediate rerun in our FS event loop. This may vary by OS.
+	if self.ranInit(ctx) {
+		self.wait(ctx)
+	}
+
+	if self.touched() {
+		self.wait(ctx)
+	}
 
 	defer self.unwatch()
 	self.watch()
@@ -99,14 +103,15 @@ func (self *Watcher[_]) unwatch() {
 	self.events = nil
 }
 
-func (self *Watcher[_]) runInitOpt(ctx Ctx) {
+func (self *Watcher[_]) ranInit(ctx Ctx) bool {
 	if !self.Init {
-		return
+		return false
 	}
 	if self.Verb {
 		defer gg.LogTimeNow(`[watcher] initial run`).LogStart().LogEnd()
 	}
 	self.Runner.OnFsEvent(ctx, nil)
+	return true
 }
 
 func (self *Watcher[_]) watch() {
@@ -162,8 +167,6 @@ cleaner to start watching without creating the target, but if the target
 doesn't exist, the watcher library returns an error. Auto-creating the target
 avoids that.
 */
-func (self Watcher[_]) touch() { self.touched() }
-
 func (self Watcher[_]) touched() bool {
 	if !self.Create {
 		return false
