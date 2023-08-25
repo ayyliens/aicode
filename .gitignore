@@ -5,6 +5,7 @@
 
 !/makefile
 !/readme.md
+!/todo.md
 !/go.sum
 !/go.mod
 !/*.go
