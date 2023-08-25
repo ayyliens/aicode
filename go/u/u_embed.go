@@ -30,6 +30,16 @@ func (self Pathed) DeleteFile(name string) {
 	RemoveFileOrDir(self.PathJoin(name))
 }
 
+func (self Pathed) DeleteFileOrSkip(name string) {
+	RemoveFileOrDirOrSkip(self.PathJoin(name))
+}
+
+func (self Pathed) TouchFile(name string) { self.TouchedFile(name) }
+
+func (self Pathed) TouchedFile(name string) bool {
+	return TouchedFile(self.PathJoin(name))
+}
+
 type Verbose struct {
 	Verb bool `flag:"--verb" desc:"enable verbose logging" json:"verb,omitempty" yaml:"verb,omitempty" toml:"verb,omitempty"`
 }

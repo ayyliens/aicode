@@ -64,8 +64,9 @@ func (self ClientConvDir) OnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	dir := self.ConvDir()
 
-	defer gg.Finally(dir.LogWriteErr)
-	dir.WriteErr(nil)
+	defer gg.Finally(dir.WriteStatusFinally)
+	defer gg.Finally(u.LogErr)
+	dir.WriteStatusPending()
 
 	if !dir.HasIndexedFiles() {
 		if self.Verb {
@@ -78,7 +79,7 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	truncIndex, trunc := self.ShouldTruncAfter(eve)
 	if trunc && dir.CanTruncAfter(truncIndex) {
 		if self.Fork {
-			self.ForkFromBackup(dir.ForkPath())
+			self.ForkFromBackup(dir.PathToFork())
 		}
 		if self.Trunc {
 			dir.TruncAfter(truncIndex)
@@ -171,7 +172,7 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest, dir ConvDir) []byte {
 	if self.ReadResponseLatest {
 		if self.Verb {
-			log.Printf(`reusing last response from disk (flag "--read-response-latest"), path %q`, dir.ResponseLatestPathJson())
+			log.Printf(`reusing last response from disk (flag "--read-response-latest"), path %q`, dir.PathToResponseLatestJson())
 		}
 		return dir.ReadResponseJson()
 	}
