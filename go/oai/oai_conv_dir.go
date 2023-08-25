@@ -229,7 +229,7 @@ func (self ConvDir) LastIndex() u.FileIndex {
 func (self ConvDir) LastIndexedFileName() (out IndexedFileName) {
 	src := gg.Last(self.IndexedFileNameCandidates())
 	if gg.IsNotZero(src) {
-		gg.Try(out.Parse(src))
+		gg.Parse(src, &out)
 	}
 	return
 }

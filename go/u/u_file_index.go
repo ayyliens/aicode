@@ -23,24 +23,32 @@ requires a fixed count.
 func (FileIndex) StringDigitCount() int { return 4 }
 
 func (self FileIndex) String() string {
+	return gg.ToString(gg.Try1(self.MarshalText()))
+}
+
+func (self FileIndex) MarshalText() ([]byte, error) {
 	const radix = 10
 	expCount := self.StringDigitCount()
 	ownCount := int(IntStringDigitCount(self, radix))
 	missing := expCount - ownCount
 
 	if missing < 0 {
-		panic(gg.Errf(
-			`%T %v overflows allowed digit count %v`,
+		return nil, gg.Errf(
+			`%T %v overflows allowed digit count %v in radix %v`,
 			self, int(self), expCount, radix,
-		))
+		)
 	}
 
 	buf := make([]byte, expCount)
 	for ind := range buf[:missing] {
 		buf[ind] = '0'
 	}
+
+	// Ideally, we would verify that the number of appended bytes is equal to
+	// `missing`.
 	strconv.AppendUint(buf[missing:missing], uint64(self), radix)
-	return gg.ToString(buf)
+
+	return buf, nil
 }
 
 func (self *FileIndex) UnmarshalText(src []byte) error {
@@ -56,30 +64,3 @@ func (self *FileIndex) UnmarshalText(src []byte) error {
 
 	return gg.ParseCatch(src, (*uint16)(self))
 }
-
-// func (FileIndex) MaxValid() int { return 10*self.StringDigitCount() - 1 }
-
-// func (self FileIndex) Validate() {
-// 	for self > 0  {
-// 		out++
-// 		self /= 10
-// 	}
-// 	return
-//
-// 	max := self.MaxValid()
-// 	if self >= 0 && int(self) <= max {
-// 		return
-// 	}
-// 	panic(gg.Errf(
-// 		`%T %v exceeds allowed maximum %v`,
-// 		self, uint16(self), max,
-// 	))
-// }
-
-// var ReFileIndexLax = gg.NewLazy(func() *regexp.Regexp {
-// 	return regexp.MustCompile(`^\d`)
-// })
-
-// var ReFileIndexStrict = gg.NewLazy(func() *regexp.Regexp {
-// 	return regexp.MustCompile(`^\d{4}$`)
-// })

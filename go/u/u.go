@@ -582,7 +582,8 @@ func FormatInt[A gg.Int](src A, radix byte) string {
 Determines how many digits must be used to string-encode a given integer in the
 given radix. At the time of writing, the largest integers in Go are 64-bit,
 which requires no more than 65 characters in radix 2 (1 sign and 64 digits),
-and even less in any other radix.
+and even less in any other radix. For negatives, this assumes 1 additional
+character for the minus sign.
 
 TODO move to `gg`.
 */

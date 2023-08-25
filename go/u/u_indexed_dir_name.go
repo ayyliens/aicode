@@ -23,13 +23,13 @@ TODO cleaner code.
 */
 func SiblingIndexedDirNamesFrom(path string) []IndexedDirName {
 	var own IndexedDirName
-	gg.Try(own.Parse(filepath.Base(path)))
+	gg.Parse(filepath.Base(path), &own)
 
 	return gg.MapCompact(
 		ReadDirDirNames(filepath.Dir(path)),
 		func(src string) (_ IndexedDirName) {
 			var tar IndexedDirName
-			gg.Try(tar.Parse(src))
+			gg.Parse(src, &tar)
 			if tar.Base == own.Base {
 				return tar
 			}
@@ -39,7 +39,7 @@ func SiblingIndexedDirNamesFrom(path string) []IndexedDirName {
 }
 
 func IndexedDirNameFrom(path string) (out IndexedDirName) {
-	gg.Try(out.Parse(filepath.Base(path)))
+	gg.Parse(filepath.Base(path), &out)
 	return
 }
 
@@ -66,17 +66,26 @@ func (self IndexedDirName) String() (_ string) {
 
 func (self IndexedDirName) IndexString() string { return self.Index.String() }
 
-func (self *IndexedDirName) Parse(src string) error {
+func (self IndexedDirName) MarshalText() ([]byte, error) {
+	return gg.ToBytes(self.String()), nil
+}
+
+func (self *IndexedDirName) UnmarshalText(src []byte) error {
 	gg.PtrClear(self)
 
-	mat := ReIndexedDirName.Get().FindStringSubmatch(src)
+	mat := ReIndexedDirName.Get().FindSubmatch(src)
 	if mat == nil {
-		self.Base = src
+		self.Base = string(src)
 		return nil
 	}
 
-	self.Base = mat[1]
-	gg.Parse(mat[2], &self.Index.Val)
+	self.Base = string(mat[1])
+
+	err := gg.ParseCatch(mat[2], &self.Index.Val)
+	if err != nil {
+		return err
+	}
+
 	self.Index.Ok = true
 	return nil
 }

@@ -9,12 +9,12 @@ import (
 )
 
 func ParseIndexedFileNameOpt(src string) (out IndexedFileName) {
-	gg.Nop1(out.Parse(src))
+	gg.Nop1(gg.ParseCatch(src, &out))
 	return
 }
 
 func ParseIndexedFileNameValid(src string) (out IndexedFileName) {
-	gg.Try(out.Parse(src))
+	gg.Parse(src, &out)
 	out.Validate()
 	return
 }
@@ -69,6 +69,19 @@ func (self IndexedFileName) ValidateType(val IndexedFileType) {
 	}
 }
 
+func (self IndexedFileName) IndexString() string { return self.Index.String() }
+func (self IndexedFileName) IsMessage() bool     { return self.Type == IndexedFileTypeMessage }
+func (self IndexedFileName) IsRequest() bool     { return self.Type == IndexedFileTypeRequest }
+func (self IndexedFileName) IsEval() bool        { return self.Type == IndexedFileTypeEval }
+
+func (self IndexedFileName) ValidString() string {
+	out := self.String()
+	if gg.IsZero(out) {
+		panic(gg.Errf(`unable to text-encode invalid %T`, self))
+	}
+	return out
+}
+
 func (self IndexedFileName) String() (_ string) {
 	if !self.IsValid() {
 		return
@@ -76,37 +89,30 @@ func (self IndexedFileName) String() (_ string) {
 	return self.IndexString() + `_` + string(self.Role) + `_` + string(self.Type) + self.Ext
 }
 
-func (self IndexedFileName) ValidString() string {
-	out := self.String()
-	if gg.IsZero(out) {
-		panic(gg.Errf(`unable to string-encode invalid %T`, self))
-	}
-	return out
+func (self IndexedFileName) MarshalText() ([]byte, error) {
+	return gg.ToBytes(self.String()), nil
 }
 
-func (self IndexedFileName) IndexString() string { return self.Index.String() }
-func (self IndexedFileName) IsMessage() bool     { return self.Type == IndexedFileTypeMessage }
-func (self IndexedFileName) IsRequest() bool     { return self.Type == IndexedFileTypeRequest }
-func (self IndexedFileName) IsEval() bool        { return self.Type == IndexedFileTypeEval }
-
-func (self *IndexedFileName) Parse(src string) (err error) {
-	defer gg.Rec(&err)
-
+func (self *IndexedFileName) UnmarshalText(src []byte) error {
 	reg := ReIndexedFileNameStrict.Get()
-	mat := reg.FindStringSubmatch(src)
+	mat := reg.FindSubmatch(src)
 
 	if mat == nil {
-		panic(gg.Errf(
+		return gg.Errf(
 			`malformed indexed file name %q; valid name must match regexp %v`,
 			src, grepr.String(reg.String()),
-		))
+		)
 	}
 
-	gg.Parse(mat[1], &self.Index)
+	err := gg.ParseCatch(mat[1], &self.Index)
+	if err != nil {
+		return nil
+	}
+
 	self.Role = ChatMessageRole(mat[2])
 	self.Type = IndexedFileType(mat[3])
-	self.Ext = mat[4]
-	return
+	self.Ext = string(mat[4])
+	return nil
 }
 
 func (self IndexedFileName) ValidateIndex(exp int) {
