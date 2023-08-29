@@ -90,9 +90,3 @@ go.test.w:
 
 go.test:
 	go test $(GO_TEST_ARGS)
-
-py.test.w:
-	$(WATCH) -- $(MAKE) py.test
-
-py.test:
-	python3 test.py
