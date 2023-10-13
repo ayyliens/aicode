@@ -145,17 +145,14 @@ func (self ConvDir) PathToResponseLatestJson() string {
 	return self.PathJoin(BaseNameResponseLatest + `.json`)
 }
 
-// FIXME use.
 func (self ConvDir) PathToStatusPending() string {
 	return self.PathJoin(BaseNameStatusPending + `.txt`)
 }
 
-// FIXME use.
 func (self ConvDir) PathToStatusError() string {
 	return self.PathJoin(BaseNameStatusError + `.txt`)
 }
 
-// FIXME use.
 func (self ConvDir) PathToStatusDone() string {
 	return self.PathJoin(BaseNameStatusDone + `.txt`)
 }
@@ -344,7 +341,7 @@ For now, this file merely serves as an indicator of ongoing work.
 func (self ConvDir) WriteStatusPending() {
 	u.RemoveFileOrDirOrSkip(self.PathToStatusError())
 	u.RemoveFileOrDirOrSkip(self.PathToStatusDone())
-	u.TouchedFile(self.PathToStatusPending())
+	u.TouchedFileRec(self.PathToStatusPending())
 }
 
 /*
@@ -354,7 +351,7 @@ For now, this file merely serves as an indicator of finished work.
 func (self ConvDir) WriteStatusDone() {
 	u.RemoveFileOrDirOrSkip(self.PathToStatusPending())
 	u.RemoveFileOrDirOrSkip(self.PathToStatusError())
-	u.TouchedFile(self.PathToStatusDone())
+	u.TouchedFileRec(self.PathToStatusDone())
 }
 
 func (self ConvDir) WriteStatusError(err error) {
