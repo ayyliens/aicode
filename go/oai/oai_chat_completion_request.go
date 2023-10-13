@@ -6,6 +6,8 @@ import (
 	"github.com/mitranim/gg"
 )
 
+var OpenAiDefaultModel = `gpt-3.5-turbo-16k`
+
 type ChatCompletionRequest struct {
 	Model            string                  `json:"model,omitempty"             yaml:"model,omitempty"             toml:"model,omitempty"`
 	Messages         []ChatCompletionMessage `json:"messages,omitempty"          yaml:"messages,omitempty"          toml:"messages,omitempty"`
@@ -24,7 +26,7 @@ type ChatCompletionRequest struct {
 }
 
 func (self *ChatCompletionRequest) Default() {
-	self.Model = gg.Or(self.Model, `gpt-3.5-turbo-16k`)
+	self.Model = gg.Or(self.Model, OpenAiDefaultModel)
 }
 
 func (self *ChatCompletionRequest) IsValid() bool {
