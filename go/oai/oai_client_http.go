@@ -8,7 +8,8 @@ import (
 )
 
 type HttpClient struct {
-	ApiKey string `flag:"--api-key" desc:"OpenAI API key" json:"apiKey,omitempty" yaml:"apiKey,omitempty" toml:"apiKey,omitempty"`
+	ApiKey   string `flag:"--api-key" desc:"OpenAI API key" json:"apiKey,omitempty" yaml:"apiKey,omitempty" toml:"apiKey,omitempty"`
+	ApiModel string `flag:"--api-model" desc:"OpenAI API Model" json:"apiModel,omitempty" yaml:"apiModel,omitempty" toml:"apiModel,omitempty"`
 }
 
 var _ Client = gg.Zero[HttpClient]()
@@ -42,5 +43,9 @@ func (self HttpClient) ChatCompletionBody(ctx u.Ctx, src ChatCompletionRequest) 
 
 // Caller must close response.
 func (self HttpClient) ChatCompletionRes(ctx u.Ctx, src ChatCompletionRequest) *gr.Res {
+	if gg.IsNotZero(self.ApiModel) {
+		src.Model = self.ApiModel
+	}
+
 	return self.ChatCompletionReq().Ctx(ctx).Json(src).Res().Ok()
 }

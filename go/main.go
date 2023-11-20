@@ -43,6 +43,7 @@ func main() {
 type Conf struct {
 	OpenAiApiKey string `env:"OPEN_AI_API_KEY"`
 	OpenAiMock   bool   `env:"OPEN_AI_MOCK"`
+	OpenAiModel  string `env:"OPEN_AI_MODEL"`
 }
 
 func (self *Conf) Init() {
@@ -65,6 +66,7 @@ func (self Conf) OaiClient() oai.Client {
 	if gg.IsNotZero(self.OpenAiApiKey) {
 		var tar oai.HttpClient
 		tar.ApiKey = self.OpenAiApiKey
+		tar.ApiModel = self.OpenAiModel
 		return tar
 	}
 

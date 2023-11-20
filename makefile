@@ -92,7 +92,6 @@ go.test.w:
 go.test:
 	go test $(GO_TEST_ARGS)
 
-
 open_ai_api_models:
 	curl https://api.openai.com/v1/models -H $(OPEN_AI_API_AUTH)
 	
