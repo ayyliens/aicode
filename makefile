@@ -17,6 +17,7 @@ GO_TEST_SHORT := $(if $(filter $(short),true), -short,)
 GO_TEST_FLAGS := -count=1 $(GO_FLAGS) $(VERB_SHORT) $(GO_TEST_FAIL) $(GO_TEST_SHORT)
 GO_TEST_PATTERNS := -run="$(run)"
 GO_TEST_ARGS := $(GO_PKG) $(GO_TEST_FLAGS) $(GO_TEST_PATTERNS)
+OPEN_AI_API_AUTH := "Authorization: Bearer $(OPEN_AI_API_KEY)"
 
 # Dependency: https://github.com/mitranim/gow.
 GOW := gow $(CLEAR_SHORT) $(VERB_SHORT)
@@ -90,3 +91,8 @@ go.test.w:
 
 go.test:
 	go test $(GO_TEST_ARGS)
+
+
+open_ai_api_models:
+	curl https://api.openai.com/v1/models -H $(OPEN_AI_API_AUTH)
+	
