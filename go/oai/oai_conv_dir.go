@@ -161,23 +161,29 @@ func (self ConvDir) PathToFork() string {
 	return u.IndexedDirForkPath(self.Path)
 }
 
+func (self ConvDir) ChatCompletionRequest() (out ChatCompletionRequest) {
+	self.InitChatCompletionRequest(&out)
+	return
+}
+
 /*
 TODO consider: instead of continuing from the last file (using all files),
 continue from the last file before the first "hole" in file indexes. Could
 be useful for edge cases like pre-creating a conversation template.
 */
-func (self ConvDir) ChatCompletionRequest() (out ChatCompletionRequest) {
-	self.ReadRequestTemplate(&out)
+func (self ConvDir) InitChatCompletionRequest(out *ChatCompletionRequest) {
+	if out == nil {
+		return
+	}
+
+	self.ReadRequestTemplate(out)
 	out.Default()
 	out.Messages = self.ValidMessages()
 
-	{
-		name := self.IndexedFileNameForNextRequest()
-		if gg.IsNotZero(name) {
-			out.DecodeFrom(name, self.ReadIndexedFile(name))
-		}
+	name := self.IndexedFileNameForNextRequest()
+	if gg.IsNotZero(name) {
+		out.DecodeFrom(name, self.ReadIndexedFile(name))
 	}
-	return
 }
 
 /*

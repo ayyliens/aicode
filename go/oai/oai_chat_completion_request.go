@@ -6,10 +6,9 @@ import (
 	"github.com/mitranim/gg"
 )
 
-var OpenAiDefaultModel = `gpt-3.5-turbo-16k`
+var OpenAiDefaultModel = `gpt-4`
 
 type ChatCompletionRequest struct {
-	// `Model` can be overridden on a request when `HttpClient.ApiModel` is not zero.
 	Model            string                  `json:"model,omitempty"             yaml:"model,omitempty"             toml:"model,omitempty"`
 	Messages         []ChatCompletionMessage `json:"messages,omitempty"          yaml:"messages,omitempty"          toml:"messages,omitempty"`
 	MaxTokens        uint64                  `json:"max_tokens,omitempty"        yaml:"max_tokens,omitempty"        toml:"max_tokens,omitempty"`

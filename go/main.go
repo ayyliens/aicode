@@ -28,6 +28,7 @@ func main() {
 
 		`oai_conv_dir`: gg.With(func(tar *CmdOaiConvDir) {
 			tar.Client = client
+			tar.Model = conf.OpenAiModel
 		}).RunCli,
 
 		`fork_dir`: CmdForkDir{}.RunCli,
@@ -66,9 +67,8 @@ func (self Conf) OaiClient() oai.Client {
 	if gg.IsNotZero(self.OpenAiApiKey) {
 		var tar oai.HttpClient
 		tar.ApiKey = self.OpenAiApiKey
-		tar.ApiModel = self.OpenAiModel
 		return tar
 	}
 
-	panic(gg.Errv(`unable to make OpenAI client: missing API key and mocks not enabled`))
+	panic(gg.Errv(`unable to make OpenAI client: missing API key, and mocks not enabled`))
 }

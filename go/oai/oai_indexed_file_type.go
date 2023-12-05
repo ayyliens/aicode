@@ -2,8 +2,6 @@ package oai
 
 import "github.com/mitranim/gg"
 
-type IndexedFileType string
-
 const (
 	/**
 	File body must be either `ChatCompletionMessage.Content` as text, or an entire
@@ -28,6 +26,8 @@ var IndexedFileTypes = []IndexedFileType{
 	IndexedFileTypeRequest,
 	IndexedFileTypeEval,
 }
+
+type IndexedFileType string
 
 func (self IndexedFileType) ErrInvalid() error {
 	return gg.Errf(`invalid %T %q; valid values: %q`, self, self, IndexedFileTypes)

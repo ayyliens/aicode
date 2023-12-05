@@ -22,7 +22,7 @@ TODO:
 			* Bot can be slow. Operator may work on multiple unrelated directories at
 			  once to minimize waiting.
 
-		  * May allow easy switching between different forks of the same directory.
+			* May allow easy switching between different forks of the same directory.
 */
 type ClientConvDir struct {
 	ClientCommon
@@ -104,7 +104,9 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
-	req := dir.ChatCompletionRequest()
+	var req ChatCompletionRequest
+	req.Model = self.Model
+	dir.InitChatCompletionRequest(&req)
 	dir.WriteRequestLatest(req)
 
 	if self.Dry {

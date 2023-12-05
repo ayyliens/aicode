@@ -15,4 +15,5 @@ type ClientCommon struct {
 	Client
 	u.WatcherCommon
 	u.Watched
+	Model string `flag:"--model" desc:"OpenAI model to use (may be unsupported by some clients)" json:"model,omitempty" yaml:"model,omitempty" toml:"model,omitempty"`
 }

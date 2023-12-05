@@ -8,8 +8,8 @@ import (
 )
 
 type HttpClient struct {
-	ApiKey   string `flag:"--api-key" desc:"OpenAI API key" json:"apiKey,omitempty" yaml:"apiKey,omitempty" toml:"apiKey,omitempty"`
-	ApiModel string `flag:"--api-model" desc:"OpenAI API Model" json:"apiModel,omitempty" yaml:"apiModel,omitempty" toml:"apiModel,omitempty"`
+	ApiKey string `flag:"--api-key" desc:"OpenAI API key"   json:"apiKey,omitempty" yaml:"apiKey,omitempty" toml:"apiKey,omitempty"`
+	Model  string `flag:"--model"   desc:"OpenAI API model" json:"model,omitempty"  yaml:"model,omitempty"  toml:"model,omitempty"`
 }
 
 var _ Client = gg.Zero[HttpClient]()
@@ -32,20 +32,18 @@ func (self HttpClient) ChatCompletionReq() *gr.Req {
 	return self.Req().Join(`/chat/completions`).Post()
 }
 
+// Required for `Client`.
 func (self HttpClient) ChatCompletionResponse(ctx u.Ctx, src ChatCompletionRequest) (out ChatCompletionResponse) {
 	self.ChatCompletionRes(ctx, src).Json(&out)
 	return
 }
 
+// Required for `Client`.
 func (self HttpClient) ChatCompletionBody(ctx u.Ctx, src ChatCompletionRequest) []byte {
 	return self.ChatCompletionRes(ctx, src).ReadBytes()
 }
 
 // Caller must close response.
 func (self HttpClient) ChatCompletionRes(ctx u.Ctx, src ChatCompletionRequest) *gr.Res {
-	if gg.IsNotZero(self.ApiModel) {
-		src.Model = self.ApiModel
-	}
-
 	return self.ChatCompletionReq().Ctx(ctx).Json(src).Res().Ok()
 }

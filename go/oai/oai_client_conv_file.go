@@ -37,6 +37,7 @@ func (self ClientConvFile) RunOnce(ctx u.Ctx) {
 	src := strings.TrimSpace(gg.ReadFile[string](self.Path))
 
 	var req ChatCompletionRequest
+	req.Model = self.Model
 	req.Default()
 	req.Messages = u.ParseJsonLines[ChatCompletionMessage](src)
 
