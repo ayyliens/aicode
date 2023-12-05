@@ -106,7 +106,7 @@ func (self *IndexedFileName) UnmarshalText(src []byte) error {
 
 	err := gg.ParseCatch(mat[1], &self.Index)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	self.Role = ChatMessageRole(mat[2])
