@@ -1,1 +1,0 @@
-The weather in Boston is currently sunny with a temperature of 22 degrees Celsius.

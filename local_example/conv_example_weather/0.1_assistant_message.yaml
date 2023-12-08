@@ -1,0 +1,5 @@
+role: assistant
+function_call:
+  name: get_current_weather
+  arguments:
+    location: Boston

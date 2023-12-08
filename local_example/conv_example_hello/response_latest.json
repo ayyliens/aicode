@@ -1,0 +1,18 @@
+{
+  "id": "chatcmpl-8TOOZFvpbEtFQlWKM6fmTa0rx6NqA",
+  "object": "chat.completion",
+  "created": 1702015979,
+  "model": "gpt-4-0613",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here's how you can print \"Hello, World!\" in Haskell:\n\n```haskell\nmain :: IO ()\nmain = putStrLn \"Hello, World!\"\n```"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 114, "completion_tokens": 31, "total_tokens": 145},
+  "system_fingerprint": null
+}

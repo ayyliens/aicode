@@ -1,0 +1,36 @@
+{
+  "model": "gpt-4",
+  "messages": [
+    {"role": "user", "content": "What is the weather like in Boston?\n"},
+    {
+      "role": "assistant",
+      "content": "",
+      "function_call": {
+        "name": "get_current_weather",
+        "arguments": "{\"location\":\"Boston\"}"
+      }
+    },
+    {
+      "role": "function",
+      "name": "get_current_weather",
+      "content": "{\"temperature\":23,\"unit\":\"celsius\",\"description\":\"sunny\"}"
+    }
+  ],
+  "functions": [
+    {
+      "name": "get_current_weather",
+      "description": "Get the current weather in a given location",
+      "parameters": {
+        "properties": {
+          "location": {
+            "description": "The city and state, e.g. San Francisco, CA",
+            "type": "string"
+          },
+          "unit": {"enum": ["celsius", "fahrenheit"], "type": "string"}
+        },
+        "required": ["location"],
+        "type": "object"
+      }
+    }
+  ]
+}

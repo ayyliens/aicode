@@ -1,0 +1,22 @@
+{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Implement \"hello world\" in Scheme (Racket).\n"
+    },
+    {
+      "role": "assistant",
+      "content": "Here's how you can print \"Hello, World!\" in Scheme (Racket):\n\n```scheme\n#lang racket\n(display \"Hello, World!\")\n(newline)\n```"
+    },
+    {
+      "role": "user",
+      "content": "Convert previous example to Common Lisp (SBCL).\n"
+    },
+    {
+      "role": "assistant",
+      "content": "Here's how you can print \"Hello, World!\" in Common Lisp (SBCL):\n\n```lisp\n(format t \"Hello, World!\")\n```"
+    },
+    {"role": "user", "content": "Convert previous example to Haskell.\n"}
+  ]
+}

@@ -1,2 +1,0 @@
-name: get_current_weather
-content: '{"temperature": 22, "unit": "celsius", "description": "Sunny"}'
