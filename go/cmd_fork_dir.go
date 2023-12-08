@@ -25,7 +25,7 @@ func (self CmdForkDir) Run() {
 		panic(gg.Errf(`missing path: "--path"`))
 	}
 
-	tar := u.IndexedDirForkPath(src)
+	tar := u.VersionedDirForkPath(src)
 
 	if self.Verb {
 		log.Printf(`copying %q to %q`, src, tar)

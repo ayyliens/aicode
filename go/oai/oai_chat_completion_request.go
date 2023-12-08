@@ -40,6 +40,14 @@ func (self *ChatCompletionRequest) Merge(src any) {
 	}
 }
 
-func (self *ChatCompletionRequest) DecodeFrom(name IndexedFileName, body []byte) {
+func (self *ChatCompletionRequest) DecodeFrom(name VersionedFileName, body []byte) {
+	u.PolyDecode(body, self, name.Ext)
+}
+
+type RequestMeta struct {
+	Depth gg.Opt[uint16] `json:"depth,omitempty" yaml:"depth,omitempty" toml:"depth,omitempty"`
+}
+
+func (self *RequestMeta) DecodeFrom(name VersionedFileName, body []byte) {
 	u.PolyDecode(body, self, name.Ext)
 }

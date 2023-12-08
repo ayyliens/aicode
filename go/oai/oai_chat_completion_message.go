@@ -120,7 +120,7 @@ func (self ChatCompletionMessage) SkipReason() (_ string) {
 	return
 }
 
-func (self *ChatCompletionMessage) DecodeFrom(name IndexedFileName, body []byte) {
+func (self *ChatCompletionMessage) DecodeFrom(name VersionedFileName, body []byte) {
 	self.Role = name.Role
 
 	switch name.Ext {

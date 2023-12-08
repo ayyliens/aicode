@@ -15,23 +15,24 @@ Short for "OpenAI client for/with conversation directory".
 
 TODO:
 
-	* Support simultaneously watching and operating on multiple directories.
-		The user should watch an "ancestor" dir, and we should operate on all
-		nested directories that appear to be "conv" dirs. Motives:
+  - Support simultaneously watching and operating on multiple directories.
+    The user should watch an "ancestor" dir, and we should operate on all
+    nested directories that appear to be "conv" dirs. Motives:
 
-			* Bot can be slow. Operator may work on multiple unrelated directories at
-			  once to minimize waiting.
+  - Bot can be slow. Operator may work on multiple unrelated directories at
+    once to minimize waiting.
 
-			* May allow easy switching between different forks of the same directory.
+  - May allow easy switching between different forks of the same directory.
 */
 type ClientConvDir struct {
 	ClientCommon
-	Trunc              bool                `flag:"--trunc"                desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty"              yaml:"trunc,omitempty"              toml:"trunc,omitempty"`
-	Fork               bool                `flag:"--fork"                 desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"               yaml:"fork,omitempty"               toml:"fork,omitempty"`
-	TruncAfter         gg.Opt[u.FileIndex] `flag:"--trunc-after"          desc:"always truncate files after given index (best with --fork)"       json:"truncAfter,omitempty"         yaml:"truncAfter,omitempty"         toml:"truncAfter,omitempty"`
-	Dry                bool                `flag:"--dry"                  desc:"dry run: no request to external API"                              json:"dry,omitempty"                yaml:"dry,omitempty"                toml:"dry,omitempty"`
-	ReadResponseLatest bool                `flag:"--read-response-latest" desc:"instead of actual HTTP request, read last response from disk"     json:"readResponseLatest,omitempty" yaml:"readResponseLatest,omitempty" toml:"readResponseLatest,omitempty"`
-	Functions          Functions           `json:"-" yaml:"-" toml:"-"`
+	Trunc              bool              `flag:"--trunc"                desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty"              yaml:"trunc,omitempty"              toml:"trunc,omitempty"`
+	Fork               bool              `flag:"--fork"                 desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"               yaml:"fork,omitempty"               toml:"fork,omitempty"`
+	TruncAfter         gg.Opt[u.Version] `flag:"--trunc-after"          desc:"always truncate files after given index (best with --fork)"       json:"truncAfter,omitempty"         yaml:"truncAfter,omitempty"         toml:"truncAfter,omitempty"`
+	Dry                bool              `flag:"--dry"                  desc:"dry run: no request to external API"                              json:"dry,omitempty"                yaml:"dry,omitempty"                toml:"dry,omitempty"`
+	ReadResponseLatest bool              `flag:"--read-response-latest" desc:"instead of actual HTTP request, read last response from disk"     json:"readResponseLatest,omitempty" yaml:"readResponseLatest,omitempty" toml:"readResponseLatest,omitempty"`
+	Rec                bool              `flag:"--rec"                  desc:"recursive run: execute prompts until skip reason"                 json:"rec,omitempty"                yaml:"rec,omitempty"                toml:"rec,omitempty"`
+	Functions          Functions         `json:"-" yaml:"-" toml:"-"`
 }
 
 func (self ClientConvDir) Run(ctx u.Ctx) {
@@ -68,7 +69,7 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	defer gg.Finally(u.LogErr)
 	dir.WriteStatusPending()
 
-	if !dir.HasIndexedFiles() {
+	if !dir.HasVersionedFiles() {
 		if self.Verb {
 			log.Println(`no messages found, creating placeholder`)
 		}
@@ -86,9 +87,10 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		}
 	}
 
+	// load files and check validity of messages
 	dir.InitFiles(self.Functions)
 
-	msg := dir.LastMessage()
+	ver, msg := dir.PendingMessage()
 	skip := msg.SkipReason()
 	if gg.IsNotZero(skip) {
 		if self.Verb {
@@ -97,16 +99,20 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
+	if self.Rec {
+		// execute until skip reason
+		defer self.RunOnFsEvent(ctx, nil)
+	}
+
 	// Somewhat redundant with below, TODO dedup.
 	call := msg.GetFunctionCall()
 	if gg.IsNotZero(call) {
-		self.RunFunction(dir, call)
+		self.RunFunction(ver.AddMinor(), dir, call)
 		return
 	}
 
-	var req ChatCompletionRequest
-	req.Model = self.Model
-	dir.InitChatCompletionRequest(&req)
+	// generation of request file for further sending
+	req := dir.ChatCompletionRequest(ver, self.Model)
 	dir.WriteRequestLatest(req)
 
 	if self.Dry {
@@ -128,19 +134,23 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	msg = choice.ChatCompletionMessage()
 	msg.Validate()
 
-	dir.WriteNextMessage(msg)
-	self.RunFunctionOpt(dir, msg.GetFunctionCall())
+	nextVer := ver.AddMinor()
+	dir.WriteMessage(nextVer, msg)
+	self.RunFunctionOpt(nextVer.AddMinor(), dir, msg.GetFunctionCall())
 }
 
-func (self ClientConvDir) RunFunctionOpt(dir ConvDir, call FunctionCall) {
+func (self ClientConvDir) RunFunctionOpt(ver u.Version, dir ConvDir, call FunctionCall) {
 	if gg.IsZero(call) {
-		dir.WriteNextMessagePlaceholder()
+		if self.Verb {
+			log.Println(`function call is empty, creating placeholder`)
+		}
+		dir.InitNextMessagePlaceholder()
 		return
 	}
-	self.RunFunction(dir, call)
+	self.RunFunction(ver, dir, call)
 }
 
-func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
+func (self ClientConvDir) RunFunction(ver u.Version, dir ConvDir, call FunctionCall) {
 	/**
 	If we fail to process the function call, then in addition to logging the
 	error, which is done by the caller outside of this function, we also create
@@ -160,11 +170,11 @@ func (self ClientConvDir) RunFunction(dir ConvDir, call FunctionCall) {
 				call.Name,
 			)
 		}
-		dir.WriteNextMessagePlaceholder()
+		dir.InitNextMessagePlaceholder()
 		return
 	}
 
-	dir.WriteNextMessageFunctionResponse(call.Name, out)
+	dir.WriteMessageFunctionResponse(ver, call.Name, out)
 
 	if self.Verb {
 		log.Printf(`wrote pending function response; when running in watch mode, review and re-save the file to trigger the next request`)
@@ -245,11 +255,11 @@ func (self ClientConvDir) ShouldSkipFsEvent(eve notify.EventInfo) bool {
 
 	name := filepath.Base(eve.Path())
 
-	return !IsIndexedFileNameLax(name) &&
+	return !IsVersionedFileNameLax(name) &&
 		u.BaseNameWithoutExt(name) != BaseNameRequestTemplate
 }
 
-func (self ClientConvDir) ShouldTruncAfter(eve notify.EventInfo) (_ u.FileIndex, _ bool) {
+func (self ClientConvDir) ShouldTruncAfter(eve notify.EventInfo) (_ u.Version, _ bool) {
 	if self.TruncAfter.IsNotNull() {
 		return self.TruncAfter.Val, true
 	}
@@ -257,7 +267,7 @@ func (self ClientConvDir) ShouldTruncAfter(eve notify.EventInfo) (_ u.FileIndex,
 	if eve != nil && eve.Event() == notify.Write {
 		name := ParseIndexedFileNameOpt(filepath.Base(u.NotifyEventPath(eve)))
 		if gg.IsNotZero(name) {
-			return name.Index, true
+			return name.Version, true
 		}
 	}
 
