@@ -91,7 +91,7 @@ func (self *VersionedDirName) UnmarshalText(src []byte) error {
 }
 
 var ReVersionedDirName = gg.NewLazy(func() *regexp.Regexp {
-	return regexp.MustCompile(`(.*)_([\d.]+)?$`)
+	return regexp.MustCompile(`(.*)-([\d.]+)?$`)
 })
 
 func (self VersionedDirName) GetVersion() Version { return self.Version.Val }

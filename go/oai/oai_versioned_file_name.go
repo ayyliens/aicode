@@ -93,7 +93,7 @@ func (self VersionedFileName) Name() (_ string) {
 	if !self.IsValid() {
 		return
 	}
-	return self.VersionString() + `_` + string(self.Role) + `_` + string(self.Type)
+	return self.VersionString() + `-` + string(self.Role) + `_` + string(self.Type)
 }
 
 func (self VersionedFileName) String() (_ string) {
@@ -176,5 +176,5 @@ var ReIndexedFileNameLax = gg.NewLazy(func() *regexp.Regexp {
 })
 
 var ReIndexedFileNameStrict = gg.NewLazy(func() *regexp.Regexp {
-	return regexp.MustCompile(`^(?P<version>[\d.]+)_(?P<role>[a-z][a-z\d]*)_(?P<type>[a-z][a-z\d]*)(?P<ext>[.][a-z]+)?$`)
+	return regexp.MustCompile(`^(?P<version>[\d.]+)-(?P<role>[a-z][a-z\d]*)_(?P<type>[a-z][a-z\d]*)(?P<ext>[.][a-z]+)?$`)
 })
