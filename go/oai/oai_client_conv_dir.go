@@ -182,6 +182,8 @@ func (self ClientConvDir) RunFunction(ver u.Version, dir ConvDir, call FunctionC
 }
 
 func (self ClientConvDir) VerbChatCompletionBody(ctx u.Ctx, req ChatCompletionRequest, dir ConvDir) []byte {
+	defer gg.RecWith(u.LogErr)
+
 	if self.ReadResponseLatest {
 		if self.Verb {
 			log.Printf(`reusing last response from disk (flag "--read-response-latest"), path %q`, dir.PathToResponseLatestJson())
