@@ -4,6 +4,8 @@ import (
 	"_/go/u"
 )
 
+type Model string
+
 // Incomplete definition of an OpenAI client. Expand on demand.
 type Client interface {
 	ChatCompletionResponse(u.Ctx, ChatCompletionRequest) ChatCompletionResponse
@@ -15,5 +17,5 @@ type ClientCommon struct {
 	Client
 	u.WatcherCommon
 	u.Watched
-	Model string `flag:"--model" desc:"OpenAI model to use (may be unsupported by some clients)" json:"model,omitempty" yaml:"model,omitempty" toml:"model,omitempty"`
+	Model Model `flag:"--model" desc:"OpenAI model to use (may be unsupported by some clients)" json:"model,omitempty" yaml:"model,omitempty" toml:"model,omitempty"`
 }

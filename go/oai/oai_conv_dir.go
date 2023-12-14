@@ -173,7 +173,7 @@ TODO consider: instead of continuing from the last file (using all files),
 continue from the last file before the first "hole" in file indexes. Could
 be useful for edge cases like pre-creating a conversation template.
 */
-func (self ConvDir) ChatCompletionRequest(version u.Version, model string) (out ChatCompletionRequest) {
+func (self ConvDir) ChatCompletionRequest(version u.Version, model Model) (out ChatCompletionRequest) {
 	out.Model = model
 	self.ReadRequestTemplate(&out)
 	out.Default()

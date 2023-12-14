@@ -20,15 +20,17 @@ func main() {
 	conf.Init()
 
 	client := conf.OaiClient()
+	model := conf.OpenAiModel
 
 	cmd.Map{
 		`oai_conv_file`: gg.With(func(tar *CmdOaiConvFile) {
 			tar.Client = client
+			tar.Model = model
 		}).RunCli,
 
 		`oai_conv_dir`: gg.With(func(tar *CmdOaiConvDir) {
 			tar.Client = client
-			tar.Model = conf.OpenAiModel
+			tar.Model = model
 		}).RunCli,
 
 		`fork_dir`: CmdForkDir{}.RunCli,
@@ -42,9 +44,9 @@ func main() {
 }
 
 type Conf struct {
-	OpenAiApiKey string `env:"OPEN_AI_API_KEY"`
-	OpenAiMock   bool   `env:"OPEN_AI_MOCK"`
-	OpenAiModel  string `env:"OPEN_AI_MODEL"`
+	OpenAiApiKey string    `env:"OPEN_AI_API_KEY"`
+	OpenAiMock   bool      `env:"OPEN_AI_MOCK"`
+	OpenAiModel  oai.Model `env:"OPEN_AI_MODEL"`
 }
 
 func (self *Conf) Init() {

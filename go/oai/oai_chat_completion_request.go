@@ -6,10 +6,10 @@ import (
 	"github.com/mitranim/gg"
 )
 
-var OpenAiDefaultModel = `gpt-4`
+var OpenAiDefaultModel = Model(`gpt-4`)
 
 type ChatCompletionRequest struct {
-	Model            string                  `json:"model,omitempty"             yaml:"model,omitempty"             toml:"model,omitempty"`
+	Model            Model                   `json:"model,omitempty"             yaml:"model,omitempty"             toml:"model,omitempty"`
 	Messages         []ChatCompletionMessage `json:"messages,omitempty"          yaml:"messages,omitempty"          toml:"messages,omitempty"`
 	MaxTokens        uint64                  `json:"max_tokens,omitempty"        yaml:"max_tokens,omitempty"        toml:"max_tokens,omitempty"`
 	Temperature      float32                 `json:"temperature,omitempty"       yaml:"temperature,omitempty"       toml:"temperature,omitempty"`
