@@ -36,6 +36,10 @@ type ClientConvDir struct {
 }
 
 func (self ClientConvDir) Run(ctx u.Ctx) {
+	if self.Rec && self.Dry {
+		log.Println(`dry run: rec is ignored`)
+	}
+
 	if self.Watch {
 		self.RunWatch(ctx)
 	} else {
@@ -99,7 +103,7 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		return
 	}
 
-	if self.Rec {
+	if self.Rec && !self.Dry {
 		// execute until skip reason
 		defer self.RunOnFsEvent(ctx, nil)
 	}
