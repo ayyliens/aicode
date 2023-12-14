@@ -605,3 +605,16 @@ func IntStringDigitCount[A gg.Int](src A, radix byte) (out byte) {
 		}
 	}
 }
+
+// Didn't find in `gg`.
+
+/*
+Returns a subslice containing up to N elements from the end.
+If there are fewer elements total, returns as many as possible.
+*/
+func TakeLast[Slice ~[]Elem, Elem any](src Slice, size int) Slice {
+	return src[gg.MaxPrim2(0, len(src)-size):]
+}
+
+// Same as global `TakeLast`.
+// func (self Slice[A]) TakeLast(size int) Slice[A] { return TakeLast(self, size) }

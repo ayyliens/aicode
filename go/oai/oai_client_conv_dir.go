@@ -32,6 +32,7 @@ type ClientConvDir struct {
 	Dry                bool              `flag:"--dry"                  desc:"dry run: no request to external API"                              json:"dry,omitempty"                yaml:"dry,omitempty"                toml:"dry,omitempty"`
 	ReadResponseLatest bool              `flag:"--read-response-latest" desc:"instead of actual HTTP request, read last response from disk"     json:"readResponseLatest,omitempty" yaml:"readResponseLatest,omitempty" toml:"readResponseLatest,omitempty"`
 	Rec                bool              `flag:"--rec"                  desc:"recursive run: execute prompts until skip reason"                 json:"rec,omitempty"                yaml:"rec,omitempty"                toml:"rec,omitempty"`
+	Tail               gg.Opt[int]       `flag:"--tail"                 desc:"limit of messages to include into request context"                json:"tail,omitempty"               yaml:"tail,omitempty"               toml:"tail,omitempty"`
 	Functions          Functions         `json:"-" yaml:"-" toml:"-"`
 }
 
@@ -117,6 +118,12 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 
 	// generation of request file for further sending
 	req := dir.ChatCompletionRequest(ver, self.Model)
+
+	if !gg.IsZero(self.Tail) {
+		// Tentative. Include only last N messages.
+		req.Messages = u.TakeLast(req.Messages, self.Tail.Val)
+	}
+
 	dir.WriteRequestLatest(req)
 
 	if self.Dry {
