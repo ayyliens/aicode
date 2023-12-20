@@ -61,6 +61,10 @@ func (self Version) NextMajor() Version {
 	return Version{gg.Head(self) + 1}
 }
 
+func (self Version) NextMinor() Version {
+	return append(gg.Init(self), gg.Last(self)+1)
+}
+
 func (self Version) PrevMajor(depth uint16) Version {
 	return Version{gg.Head(self) - depth}
 }

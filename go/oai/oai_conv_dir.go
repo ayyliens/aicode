@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	BaseNameRequestTemplate = `request_template`
-	BaseNameRequestLatest   = `request_latest`
-	BaseNameResponseLatest  = `response_latest`
-	BaseNameStatusPending   = `status_pending`
-	BaseNameStatusError     = `status_error`
-	BaseNameStatusDone      = `status_done`
+	BaseNameRequestTemplate = `request-template`
+	BaseNameRequestLatest   = `request-latest`
+	BaseNameResponseLatest  = `response-latest`
+	BaseNameStatusPending   = `status-pending`
+	BaseNameStatusError     = `status-error`
+	BaseNameStatusDone      = `status-done`
 )
 
 /*
@@ -273,12 +273,25 @@ func (self ConvDir) RequestForVersion(version u.Version) (_ VersionedFileName) {
 	})
 }
 
-func (self ConvDir) NextVersion() u.Version {
+func (self ConvDir) LastVersion() u.Version {
+	version, _ := self.ValidMessages()
+	return version
+}
+
+func (self ConvDir) NextMajorVersion() u.Version {
 	src := self.LastVersionedFileName()
 	if gg.IsNotZero(src) {
 		return src.Version.NextMajor()
 	}
 	return src.Version
+}
+
+func (self ConvDir) NextMinorVersion() u.Version {
+	return self.LastVersion().NextMinor()
+}
+
+func (self ConvDir) AddMinorVersion() u.Version {
+	return self.LastVersion().AddMinor()
 }
 
 func (self ConvDir) LastVersionedFileName() (out VersionedFileName) {
@@ -338,11 +351,11 @@ func (self ConvDir) WriteMessageFunctionResponse(ver u.Version, name FunctionNam
 //	self.WriteMessageFunctionResponse(src.Name, ``)
 //}
 
-func (self ConvDir) WriteMessage(index u.Version, msg ChatCompletionMessage) {
+func (self ConvDir) WriteMessage(ver u.Version, msg ChatCompletionMessage) {
 	ext, body := msg.ExtBody()
 
 	var name VersionedFileName
-	name.Version = index
+	name.Version = ver
 	name.Role = msg.Role
 	name.Type = VersionedFileTypeMessage
 	name.Ext = ext
@@ -351,15 +364,7 @@ func (self ConvDir) WriteMessage(index u.Version, msg ChatCompletionMessage) {
 }
 
 func (self ConvDir) WriteNextMessage(msg ChatCompletionMessage) {
-	ext, body := msg.ExtBody()
-
-	var name VersionedFileName
-	name.Version = self.NextVersion()
-	name.Role = msg.Role
-	name.Type = VersionedFileTypeMessage
-	name.Ext = ext
-
-	self.WriteVersionedFile(name, body)
+	self.WriteMessage(self.NextMajorVersion(), msg)
 }
 
 func (self ConvDir) WriteStatusFinally(err error) {

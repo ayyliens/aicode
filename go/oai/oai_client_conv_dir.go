@@ -26,6 +26,7 @@ TODO:
 */
 type ClientConvDir struct {
 	ClientCommon
+	// FIXME trunc only assistant files
 	Trunc              bool              `flag:"--trunc"                desc:"support conversation truncation in watch mode (best with --fork)" json:"trunc,omitempty"              yaml:"trunc,omitempty"              toml:"trunc,omitempty"`
 	Fork               bool              `flag:"--fork"                 desc:"support conversation forking in watch mode (best with --trunc)"   json:"fork,omitempty"               yaml:"fork,omitempty"               toml:"fork,omitempty"`
 	TruncAfter         gg.Opt[u.Version] `flag:"--trunc-after"          desc:"always truncate files after given index (best with --fork)"       json:"truncAfter,omitempty"         yaml:"truncAfter,omitempty"         toml:"truncAfter,omitempty"`

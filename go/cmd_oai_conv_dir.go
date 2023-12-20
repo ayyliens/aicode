@@ -50,6 +50,12 @@ func (self CmdOaiConvDir) Run() {
 				Clear: self.OutClear,
 			})
 		}
+
+		// FIXME generate request-template.yaml with function descriptions
+
+		self.Functions.Add(`write_prompts`, FunctionWritePrompts{
+			Dir: self.ConvDir(),
+		})
 	}
 
 	self.Ignore = u.AdjoinCompact(self.Ignore, self.SrcPath, self.OutPath)
