@@ -47,9 +47,9 @@ func VersionedDirNameFrom(path string) (out VersionedDirName) {
 Implements parsing and encoding of directory names with optional indexes:
 
 	some_dir
-	some_dir_0000
-	some_dir_0001
-	some_dir_0002
+	some_dir-0000
+	some_dir-0001
+	some_dir-0002
 	...
 */
 type VersionedDirName struct {
@@ -61,7 +61,7 @@ func (self VersionedDirName) String() (_ string) {
 	if self.Version.IsNull() {
 		return self.Base
 	}
-	return self.Base + `_` + self.VersionString()
+	return self.Base + `-` + self.VersionString()
 }
 
 func (self VersionedDirName) VersionString() string { return self.Version.String() }
