@@ -16,9 +16,11 @@ var _ = oai.OaiFunction(gg.Zero[FunctionWritePrompts]())
 func (self FunctionWritePrompts) OaiCall(src string) (_ string) {
 	inp := gg.JsonDecodeTo[FunctionWritePromptsInp](src)
 
+	ver := self.Dir.LastVersion()
 	for _, file := range inp.Prompts {
-		file.WriteTo(self.Dir.AddMinorVersion(), self.Dir.Path)
+		file.WriteTo(ver.NextMinor(), self.Dir.Path)
 	}
+
 	return
 }
 
