@@ -121,6 +121,7 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	req := dir.ChatCompletionRequest(ver, self.Model)
 
 	if !gg.IsZero(self.Tail) {
+		// TODO Don't include unnecessary messages on `dir.ChatCompletionRequest`.
 		// Tentative. Include only last N messages.
 		req.Messages = u.TakeLast(req.Messages, self.Tail.Val)
 	}
