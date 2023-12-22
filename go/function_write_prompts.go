@@ -2,7 +2,6 @@ package main
 
 import (
 	"_/go/oai"
-	"_/go/u"
 
 	"github.com/mitranim/gg"
 )
@@ -15,7 +14,6 @@ type FunctionWritePrompts struct {
 var _ = oai.OaiFunction(gg.Zero[FunctionWritePrompts]())
 
 func (self FunctionWritePrompts) OaiCall(src string) (_ string) {
-
 	inp := gg.JsonDecodeTo[FunctionWritePromptsInp](src)
 
 	for _, file := range inp.Prompts {
@@ -25,6 +23,6 @@ func (self FunctionWritePrompts) OaiCall(src string) (_ string) {
 }
 
 type FunctionWritePromptsInp struct {
-	Prompts []u.Prompt `json:"prompts" desc:"list of prompts with role and contents"`
+	Prompts []oai.Prompt `json:"prompts" desc:"list of prompts with role and contents"`
 	// TODO maybe add flag parallel
 }
