@@ -1,8 +1,6 @@
 package u
 
 import (
-	"strconv"
-
 	"github.com/mitranim/gg"
 )
 
@@ -10,7 +8,7 @@ import (
 Represents a version in a file name, such as `0.0.0.0`, `1` == `1.0.0.0`, `1.0.0.1`
 and so on. Implements decoding and encoding.
 */
-type Version []uint16
+type Version []FileIndex
 
 func (self Version) String() string {
 	return gg.ToString(gg.Try1(self.MarshalText()))
@@ -66,7 +64,7 @@ func (self Version) NextMinor() Version {
 }
 
 func (self Version) PrevMajor(depth uint16) Version {
-	return Version{gg.Head(self) - depth}
+	return Version{FileIndex(uint16(gg.Head(self)) - depth)}
 }
 
 func (self Version) AddMinor() Version {
@@ -76,15 +74,16 @@ func (self Version) AddMinor() Version {
 func (self Version) MarshalText() ([]byte, error) {
 	const radix = 10
 	lastIndex := gg.LastIndex(self)
+
 	var buf []byte
 	if gg.IsEmpty(self) {
-		buf = strconv.AppendUint(buf, uint64(0), radix)
+		buf = []byte(FileIndex(0).String())
 		return buf, nil
 	}
 
-	for i, ver := range self {
-		buf = strconv.AppendUint(buf, uint64(ver), radix)
-		if i != lastIndex {
+	for ind, ver := range self {
+		buf = append(buf, []byte(ver.String())...)
+		if ind != lastIndex {
 			buf = append(buf, `.`...)
 		}
 	}
@@ -100,7 +99,7 @@ func (self *Version) UnmarshalText(src []byte) error {
 		if err != nil {
 			return err
 		}
-		gg.Append(self, val)
+		gg.Append(self, FileIndex(val))
 	}
 
 	return nil
