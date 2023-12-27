@@ -51,6 +51,10 @@ func (self FileIndex) MarshalText() ([]byte, error) {
 	return buf, nil
 }
 
+func (self FileIndex) TryMarshalText() []byte {
+	return gg.Try1(self.MarshalText())
+}
+
 func (self *FileIndex) UnmarshalText(src []byte) error {
 	expCount := self.StringDigitCount()
 	srcCount := len(src)
@@ -63,4 +67,9 @@ func (self *FileIndex) UnmarshalText(src []byte) error {
 	}
 
 	return gg.ParseCatch(src, (*uint16)(self))
+}
+
+func (self FileIndex) TryParse(src string) FileIndex {
+	gg.Try(self.UnmarshalText(gg.ToBytes(src)))
+	return self
 }

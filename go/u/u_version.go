@@ -71,36 +71,21 @@ func (self Version) AddMinor() Version {
 	return append(self, 1)
 }
 
-func (self Version) MarshalText() ([]byte, error) {
-	const radix = 10
-	lastIndex := gg.LastIndex(self)
-
-	var buf []byte
-	if gg.IsEmpty(self) {
-		buf = []byte(FileIndex(0).String())
-		return buf, nil
-	}
-
-	for ind, ver := range self {
-		buf = append(buf, []byte(ver.String())...)
-		if ind != lastIndex {
-			buf = append(buf, `.`...)
-		}
-	}
-	return buf, nil
+func (self Version) MarshalText() (out []byte, err error) {
+	return self.AppendTo(out), nil
 }
 
 func (self *Version) UnmarshalText(src []byte) error {
-	split := gg.Split(gg.ToString(src), `.`)
+	return self.Parse(gg.ToString(src))
+}
 
-	for _, ver := range split {
-		var val uint16
-		err := gg.ParseCatch(ver, &val)
-		if err != nil {
-			return err
-		}
-		gg.Append(self, FileIndex(val))
-	}
+func (self Version) AppendTo(buf []byte) []byte {
+	val := gg.Join(gg.Map(self, FileIndex.String), `.`)
+	return append(buf, gg.ToBytes(val)...)
+}
 
-	return nil
+func (self *Version) Parse(src string) (err error) {
+	defer gg.Rec(&err)
+	gg.Append(self, gg.Map(gg.Split(src, `.`), gg.Zero[FileIndex]().TryParse)...)
+	return
 }
