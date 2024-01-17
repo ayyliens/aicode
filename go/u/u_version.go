@@ -55,6 +55,10 @@ func (self Version) Less(val Version) bool {
 	return false
 }
 
+func (self Version) Init() Version {
+	return append(self, 0)
+}
+
 func (self Version) NextMajor() Version {
 	return Version{gg.Head(self) + 1}
 }

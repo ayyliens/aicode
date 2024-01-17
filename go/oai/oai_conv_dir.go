@@ -280,10 +280,11 @@ func (self ConvDir) LastVersion() u.Version {
 
 func (self ConvDir) NextMajorVersion() u.Version {
 	src := self.LastVersionedFileName()
-	if gg.IsNotZero(src) {
-		return src.Version.NextMajor()
+	if gg.IsZero(src) {
+		return src.Version.Init()
 	}
-	return src.Version
+
+	return src.Version.NextMajor()
 }
 
 func (self ConvDir) NextMinorVersion() u.Version {

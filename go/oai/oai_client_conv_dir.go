@@ -15,14 +15,14 @@ Short for "OpenAI client for/with conversation directory".
 
 TODO:
 
-  - Support simultaneously watching and operating on multiple directories.
-    The user should watch an "ancestor" dir, and we should operate on all
-    nested directories that appear to be "conv" dirs. Motives:
+	- Support simultaneously watching and operating on multiple directories.
+		The user should watch an "ancestor" dir, and we should operate on all
+		nested directories that appear to be "conv" dirs. Motives:
 
-  - Bot can be slow. Operator may work on multiple unrelated directories at
-    once to minimize waiting.
+	- Bot can be slow. Operator may work on multiple unrelated directories at
+		once to minimize waiting.
 
-  - May allow easy switching between different forks of the same directory.
+	- May allow easy switching between different forks of the same directory.
 */
 type ClientConvDir struct {
 	ClientCommon
