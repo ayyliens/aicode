@@ -31,7 +31,7 @@ TODO better name.
 */
 func (self ConvDir) InitFiles(funs Functions) {
 	self.EvalFiles(funs)
-	self.InitNextMessagePlaceholder()
+	//self.InitNextMessagePlaceholder() FIXME
 }
 
 func (self ConvDir) EvalFiles(funs Functions) {
@@ -60,7 +60,7 @@ func (self ConvDir) EvalFileOpt(srcName VersionedFileName, funs Functions) {
 	var msg ChatCompletionMessage
 	msg.Role = ChatMessageRoleFunction
 	msg.Name = call.Name
-	msg.Content = funs.Response(call.Name, call.Arguments.String(), self.Verbose)
+	msg.Content = funs.Response(nil, call.Name, call.Arguments.String(), self.Verbose)
 	msg.Validate()
 
 	gg.WriteFile(tarPath, u.PolyEncode[[]byte](msg, tarName.Ext))

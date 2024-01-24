@@ -24,28 +24,29 @@ func (self Functions) Get(key FunctionName) OaiFunction {
 	return self.OrdMap().Get(key)
 }
 
-func (self *Functions) Add(key FunctionName, val OaiFunction) {
+func (self *Functions) Add(val OaiFunction) {
+	key := val.Name()
 	if self.Has(key) {
 		panic(gg.Errf(
 			`redundant registration of function %q of type %T`,
 			key, val,
 		))
 	}
-	self.Set(key, val)
+	self.Set(val)
 }
 
-func (self *Functions) Set(key FunctionName, val OaiFunction) {
+func (self *Functions) Set(val OaiFunction) {
 	if val == nil {
-		panic(gg.Errf(`unexpected nil function %q`, key))
+		panic(gg.Errf(`unexpected nil function`))
 	}
-	self.OrdMap().Set(key, val)
+	self.OrdMap().Set(val.Name(), val)
 }
 
 func (self *Functions) OrdMap() *gg.OrdMap[FunctionName, OaiFunction] {
 	return (*gg.OrdMap[FunctionName, OaiFunction])(self)
 }
 
-func (self Functions) Response(name FunctionName, arg string, verb u.Verbose) (_ string) {
+func (self Functions) Response(ctx u.Ctx, name FunctionName, arg string, verb u.Verbose) (_ string) {
 	fun := self.Get(name)
 	if fun == nil {
 		if verb.Verb {
@@ -57,5 +58,5 @@ func (self Functions) Response(name FunctionName, arg string, verb u.Verbose) (_
 	if verb.Verb {
 		defer gg.LogTimeNow(`running function `, grepr.String(name)).LogStart().LogEnd()
 	}
-	return fun.OaiCall(arg)
+	return fun.OaiCall(ctx, arg)
 }

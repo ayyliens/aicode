@@ -36,3 +36,12 @@ func (self MockClient) ChatCompletionMessage(src ChatCompletionMessage) (out Cha
 	out.Content = `(mock response)`
 	return
 }
+
+func (self MockClient) ImageGenerationResponse(ctx u.Ctx, src ImageGenerationRequest) (out ImageGenerationResponse) {
+	out.Created = 0
+
+	gg.Append(&out.Data, ImageGenerationData{
+		Url: `test`,
+	})
+	return
+}

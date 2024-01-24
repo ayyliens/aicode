@@ -38,22 +38,25 @@ func (self CmdOaiConvDir) Run() {
 	}
 
 	if self.Funcs {
-		self.Functions.Add(`get_current_weather`, FunctionGetCurrentWeather{})
+		self.Functions.Add(FunctionGetCurrentWeather{})
 
 		if gg.IsNotZero(self.SrcPath) {
-			self.Functions.Add(`read_files`, FunctionReadFiles{Path: self.SrcPath})
+			self.Functions.Add(FunctionReadFiles{Path: self.SrcPath})
 		}
 
 		if gg.IsNotZero(self.OutPath) {
-			self.Functions.Add(`write_files`, FunctionWriteFiles{
+			self.Functions.Add(FunctionWriteFiles{
 				Path:  self.OutPath,
 				Clear: self.OutClear,
 			})
+			self.Functions.Add(FunctionGenImages{
+				Client: self.Client,
+				Path:   self.OutPath,
+				Clear:  self.OutClear,
+			})
 		}
 
-		// FIXME generate request-template.yaml with function descriptions
-
-		self.Functions.Add(`write_prompts`, FunctionWritePrompts{
+		self.Functions.Add(FunctionWritePrompts{
 			Dir: self.ConvDir(),
 		})
 	}

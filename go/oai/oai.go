@@ -1,5 +1,7 @@
 package oai
 
+import "_/go/u"
+
 const TempDirName = `aicode`
 
 /*
@@ -11,4 +13,8 @@ understand arbitrary text. As a special case, if the output is empty, we do not
 generate a function response message, because an empty function response seems
 to confuse bots.
 */
-type OaiFunction interface{ OaiCall(string) string }
+type OaiFunction interface {
+	Name() FunctionName
+	OaiCall(u.Ctx, string) string
+	Def() FunctionDefinition
+}

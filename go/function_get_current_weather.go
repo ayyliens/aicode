@@ -2,6 +2,7 @@ package main
 
 import (
 	"_/go/oai"
+	"_/go/u"
 
 	"github.com/mitranim/gg"
 )
@@ -10,7 +11,11 @@ type FunctionGetCurrentWeather struct{}
 
 var _ = oai.OaiFunction(gg.Zero[FunctionGetCurrentWeather]())
 
-func (FunctionGetCurrentWeather) OaiCall(src string) string {
+func (self FunctionGetCurrentWeather) Name() oai.FunctionName {
+	return `get_current_weather`
+}
+
+func (FunctionGetCurrentWeather) OaiCall(ctx u.Ctx, src string) string {
 	inp := gg.JsonDecodeTo[FunctionGetCurrentWeatherInp](src)
 
 	return gg.JsonString(FunctionGetWeatherOut{
@@ -18,6 +23,27 @@ func (FunctionGetCurrentWeather) OaiCall(src string) string {
 		Unit:        gg.Or(inp.Unit, `celsius`),
 		Description: `sunny`,
 	})
+}
+
+func (self FunctionGetCurrentWeather) Def() oai.FunctionDefinition {
+	return oai.FunctionDefinition{
+		Name:        string(self.Name()),
+		Description: `Get the current weather in a given location`,
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"location": map[string]interface{}{
+					"type":        "string",
+					"description": "The city and state, e.g. San Francisco, CA",
+				},
+				"unit": map[string]interface{}{
+					"type": "string",
+					"enum": []string{"celsius", "fahrenheit"},
+				},
+			},
+			"required": []string{"location"},
+		},
+	}
 }
 
 type FunctionGetCurrentWeatherInp struct {

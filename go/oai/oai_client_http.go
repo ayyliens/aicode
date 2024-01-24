@@ -47,3 +47,23 @@ func (self HttpClient) ChatCompletionBody(ctx u.Ctx, src ChatCompletionRequest) 
 func (self HttpClient) ChatCompletionRes(ctx u.Ctx, src ChatCompletionRequest) *gr.Res {
 	return self.ChatCompletionReq().Ctx(ctx).Json(src).Res().Ok()
 }
+
+func (self HttpClient) ImageGenerationReq() *gr.Req {
+	return self.Req().Join(`/images/generations`).Post()
+}
+
+// Required for `Client`.
+func (self HttpClient) ImageGenerationResponse(ctx u.Ctx, src ImageGenerationRequest) (out ImageGenerationResponse) {
+	self.ImageGenerationRes(ctx, src).Json(&out)
+	return
+}
+
+// Required for `Client`.
+func (self HttpClient) ImageGenerationBody(ctx u.Ctx, src ImageGenerationRequest) []byte {
+	return self.ImageGenerationRes(ctx, src).ReadBytes()
+}
+
+// Caller must close response.
+func (self HttpClient) ImageGenerationRes(ctx u.Ctx, src ImageGenerationRequest) *gr.Res {
+	return self.ImageGenerationReq().Ctx(ctx).Json(src).Res().Ok()
+}

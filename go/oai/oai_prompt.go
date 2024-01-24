@@ -24,11 +24,9 @@ func (self Prompt) WriteTo(ver u.Version, out string) {
 	// TODO support yaml
 	fileName := VersionedFileName{
 		Version: ver,
-		// TODO Bot produces wrong roles. Didn't figure out how to strict him down.
-		// Role:    self.Role,
-		Role: `user`,
-		Type: VersionedFileTypeMessage,
-		Ext:  ChatCompletionMessageDefaultExtForText,
+		Role:    self.Role,
+		Type:    VersionedFileTypeMessage,
+		Ext:     ChatCompletionMessageDefaultExtForText,
 	}.String()
 
 	u.WriteFileRec(filepath.Join(out, fileName), self.Body)

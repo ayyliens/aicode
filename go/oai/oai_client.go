@@ -10,6 +10,7 @@ type Model string
 type Client interface {
 	ChatCompletionResponse(u.Ctx, ChatCompletionRequest) ChatCompletionResponse
 	ChatCompletionBody(u.Ctx, ChatCompletionRequest) []byte
+	ImageGenerationResponse(u.Ctx, ImageGenerationRequest) ImageGenerationResponse
 }
 
 // Used by `ClientConvDir` and `ClientConvFile`.

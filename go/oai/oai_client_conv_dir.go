@@ -15,14 +15,14 @@ Short for "OpenAI client for/with conversation directory".
 
 TODO:
 
-	- Support simultaneously watching and operating on multiple directories.
-		The user should watch an "ancestor" dir, and we should operate on all
-		nested directories that appear to be "conv" dirs. Motives:
+  - Support simultaneously watching and operating on multiple directories.
+    The user should watch an "ancestor" dir, and we should operate on all
+    nested directories that appear to be "conv" dirs. Motives:
 
-	- Bot can be slow. Operator may work on multiple unrelated directories at
-		once to minimize waiting.
+  - Bot can be slow. Operator may work on multiple unrelated directories at
+    once to minimize waiting.
 
-	- May allow easy switching between different forks of the same directory.
+  - May allow easy switching between different forks of the same directory.
 */
 type ClientConvDir struct {
 	ClientCommon
@@ -113,7 +113,7 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 	// Somewhat redundant with below, TODO dedup.
 	call := msg.GetFunctionCall()
 	if gg.IsNotZero(call) {
-		self.RunFunction(ver.AddMinor(), dir, call)
+		self.RunFunction(ctx, ver.AddMinor(), dir, call)
 		return
 	}
 
@@ -124,6 +124,10 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 		// TODO Don't include unnecessary messages on `dir.ChatCompletionRequest`.
 		// Tentative. Include only last N messages.
 		req.Messages = u.TakeLast(req.Messages, self.Tail.Val)
+	}
+
+	for _, function := range self.Functions.Slice {
+		gg.Append(&req.Functions, function.Def())
 	}
 
 	dir.WriteRequestLatest(req)
@@ -149,10 +153,10 @@ func (self ClientConvDir) RunOnFsEvent(ctx u.Ctx, eve notify.EventInfo) {
 
 	nextVer := ver.AddMinor()
 	dir.WriteMessage(nextVer, msg)
-	self.RunFunctionOpt(nextVer.AddMinor(), dir, msg.GetFunctionCall())
+	self.RunFunctionOpt(ctx, nextVer.AddMinor(), dir, msg.GetFunctionCall())
 }
 
-func (self ClientConvDir) RunFunctionOpt(ver u.Version, dir ConvDir, call FunctionCall) {
+func (self ClientConvDir) RunFunctionOpt(ctx u.Ctx, ver u.Version, dir ConvDir, call FunctionCall) {
 	if gg.IsZero(call) {
 		if self.Verb {
 			log.Println(`function call is empty, creating placeholder`)
@@ -160,10 +164,10 @@ func (self ClientConvDir) RunFunctionOpt(ver u.Version, dir ConvDir, call Functi
 		dir.InitNextMessagePlaceholder()
 		return
 	}
-	self.RunFunction(ver, dir, call)
+	self.RunFunction(ctx, ver, dir, call)
 }
 
-func (self ClientConvDir) RunFunction(ver u.Version, dir ConvDir, call FunctionCall) {
+func (self ClientConvDir) RunFunction(ctx u.Ctx, ver u.Version, dir ConvDir, call FunctionCall) {
 	/**
 	If we fail to process the function call, then in addition to logging the
 	error, which is done by the caller outside of this function, we also create
@@ -174,7 +178,7 @@ func (self ClientConvDir) RunFunction(ver u.Version, dir ConvDir, call FunctionC
 	*/
 	defer u.Fail0(dir.WriteNextMessagePlaceholderOrSkip)
 
-	out := self.Functions.Response(call.Name, call.Arguments.String(), self.Verbose)
+	out := self.Functions.Response(ctx, call.Name, call.Arguments.String(), self.Verbose)
 
 	if gg.IsZero(out) {
 		if self.Verb {

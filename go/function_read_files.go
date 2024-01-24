@@ -13,7 +13,11 @@ type FunctionReadFiles struct{ Path string }
 
 var _ = oai.OaiFunction(gg.Zero[FunctionReadFiles]())
 
-func (self FunctionReadFiles) OaiCall(src string) (_ string) {
+func (self FunctionReadFiles) Name() oai.FunctionName {
+	return `read_files`
+}
+
+func (self FunctionReadFiles) OaiCall(ctx u.Ctx, src string) (_ string) {
 	inp := gg.JsonDecodeTo[FunctionReadFilesInp](src)
 	var tar FunctionWriteFilesInp
 
@@ -59,4 +63,24 @@ func LoadFile(path string, name string) u.File {
 
 type FunctionReadFilesInp struct {
 	Paths []string `json:"paths" desc:"list of file paths, relative or absolute"`
+}
+
+func (self FunctionReadFiles) Def() oai.FunctionDefinition {
+	return oai.FunctionDefinition{
+		Name:        string(self.Name()),
+		Description: `Request a list of files by providing a list of file names or paths`,
+		Parameters: map[string]interface{}{
+			`type`: `object`,
+			`properties`: map[string]interface{}{
+				`paths`: map[string]interface{}{
+					`type`:        `array`,
+					`description`: `List of file names or paths.`,
+					`items`: map[string]interface{}{
+						`type`:        `string`,
+						`description`: `File name or path.`,
+					},
+				},
+			},
+		},
+	}
 }
